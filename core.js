@@ -22,3 +22,11 @@ export class GitHub{
 }
 export async function decryptMailbox(envelope,privateKey){const rawKey=await crypto.subtle.decrypt({name:'RSA-OAEP'},privateKey,from64(envelope.key));const aes=await crypto.subtle.importKey('raw',rawKey,'AES-GCM',false,['decrypt']);const compressed=await crypto.subtle.decrypt({name:'AES-GCM',iv:from64(envelope.iv)},aes,from64(envelope.data));const stream=new Blob([compressed]).stream().pipeThrough(new DecompressionStream('gzip'));return JSON.parse(await new Response(stream).text());}
 export async function deviceKeys(){const db=await new Promise((resolve,reject)=>{const r=indexedDB.open('s-generator-keys',1);r.onupgradeneeded=()=>r.result.createObjectStore('keys');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});const stored=await new Promise((resolve,reject)=>{const r=db.transaction('keys').objectStore('keys').get('reply');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});if(stored){db.close();return stored;}const pair=await crypto.subtle.generateKey({name:'RSA-OAEP',modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},false,['encrypt','decrypt']);const result={privateKey:pair.privateKey,publicKey:await crypto.subtle.exportKey('jwk',pair.publicKey)};await new Promise((resolve,reject)=>{const tx=db.transaction('keys','readwrite');tx.objectStore('keys').put(result,'reply');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});db.close();return result;}
+export function resolveJobState(job,run,active,now=Date.now()){
+ const staleRetry=active.retry_at && (!job || job.updated_at*1000<active.retry_at);
+ const oldRun=active.retry_at && (!run || Date.parse(run.created_at)<active.retry_at-2000);
+ if(staleRetry&&oldRun&&now-active.retry_at<120000)return 'queued';
+ if(run&&run.status!=='completed')return run.status==='in_progress'?'running':'queued';
+ if(run?.status==='completed'&&run.conclusion!=='success')return run.conclusion==='cancelled'?'cancelled':'failed';
+ return job?.status||'queued';
+}
