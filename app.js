@@ -1,7 +1,7 @@
-import {presets,gridSuggestions} from './mixing.js';
-import {PhraseEditor,validatePhrases} from './phrases.js';
-import {parseMidi,melodyNotes} from './midi.js';
-import {uuid,GitHub,validateSettings,fileCheck,deviceKeys,decryptMailbox,from64,resolveJobState} from './core.js';
+import {presets,gridSuggestions} from './mixing.js?v=0.5.1';
+import {PhraseEditor,validatePhrases} from './phrases.js?v=0.5.1';
+import {parseMidi,melodyNotes} from './midi.js?v=0.5.1';
+import {uuid,GitHub,validateSettings,fileCheck,deviceKeys,decryptMailbox,from64,resolveJobState} from './core.js?v=0.5.1';
 const $=id=>document.getElementById(id);
 let api=null,project=null,projectSha=null,keys=null,busy=false,timer=null,active=null,lastResponse=null;
 let effectVersion=2,demoPreviewLimit=null;
