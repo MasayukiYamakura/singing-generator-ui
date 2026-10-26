@@ -4,9 +4,10 @@ export const from64=s=>Uint8Array.from(atob(s.replace(/\s/g,'')),c=>c.charCodeAt
 export const encodeJSON=x=>bytes64(new TextEncoder().encode(JSON.stringify(x,null,2)));
 export const decodeJSON=s=>JSON.parse(new TextDecoder().decode(from64(s)));
 export function validateSettings(s){
- if(!['off','weak','standard','strong'].includes(s.strength)||!['major','minor'].includes(s.scale))throw Error('補正設定が不正です');
+ if(!['off','weak','standard','strong','hard'].includes(s.strength)||!['major','minor'].includes(s.scale))throw Error('補正設定が不正です');
  if(!Number.isInteger(s.key)||s.key<0||s.key>11||!Number.isFinite(s.offset_seconds)||Math.abs(s.offset_seconds)>30||!Number.isFinite(s.balance)||s.balance<0||s.balance>1.5)throw Error('キー・開始位置・音量を確認してください');
  if(s.reference_offset_seconds!==undefined&&(!Number.isFinite(s.reference_offset_seconds)||Math.abs(s.reference_offset_seconds)>30))throw Error('基準音符の開始位置を確認してください');
+ if(s.retune_ms!==undefined&&(!Number.isFinite(s.retune_ms)||s.retune_ms<0||s.retune_ms>200))throw Error('補正速度は0〜200msです');
  let last=0;if(!Array.isArray(s.notes))throw Error('基準音符はJSON配列にしてください');
  for(const n of s.notes){if(![n.start,n.end,n.midi].every(Number.isFinite)||n.start<last||n.end<=n.start||n.midi<24||n.midi>96)throw Error('基準音符の時刻・音程を確認してください');last=n.end}
  return s;
