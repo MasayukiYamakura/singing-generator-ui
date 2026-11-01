@@ -1,4 +1,6 @@
 # S-Generator UI — スマホ基本版
+
+画面上部の「← V-Generatorへ（動画制作・投稿）」から、動画制作・投稿画面を別タブで開けます。素材・設定・トークンはリンクへ含めません。
 GitHub Pagesで公開する画面。処理用の非公開 singing-generator と分離しています。
 `npm test` で基本ロジックを確認。ビルド不要。Pagesはmainルートを公開。
 
