@@ -16,7 +16,7 @@ export function fileCheck(file){if(!file||!file.size)throw Error('歌声と伴�
 export function safeRepo(repo){if(!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo))throw Error('リポジトリは所有者/名前で指定してください');return repo;}
 export class GitHub{
  constructor(repo,token){this.repo=safeRepo(repo);this.token=token;}
- async call(path,{method='GET',body}={}){const response=await fetch(`https://api.github.com/repos/${this.repo}/${path}`,{method,headers:{Authorization:`Bearer ${this.token}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,cache:'no-store'});if(!response.ok){const e=Error(`GitHub HTTP ${response.status}。${response.status===401?'トークンを確認してください。':response.status===403?'権限・有効期限・利用枠を確認してください。':response.status===404?'対象リポジトリとトークンの許可対象を確認してください。':'再試行してください。'}`);e.status=response.status;throw e;}return response.status===204?null:response.json();}
+ async call(path,{method='GET',body}={}){const url=`https://api.github.com/repos/${this.repo}${path?'/'+path:''}`;let response;try{response=await fetch(url,{method,headers:{Authorization:`Bearer ${this.token}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,cache:'no-store'});}catch{const e=Error('GitHub APIとの通信に失敗しました。ページを再読み込みし、通信環境やブラウザの通信制限を確認してください。トークンの権限不足とは限りません。');e.code='NETWORK_ERROR';throw e;}if(!response.ok){const e=Error(`GitHub HTTP ${response.status}。${response.status===401?'トークンを確認してください。':response.status===403?'権限・有効期限・利用枠を確認してください。':response.status===404?'対象リポジトリとトークンの許可対象を確認してください。':'再試行してください。'}`);e.status=response.status;throw e;}return response.status===204?null:response.json();}
  async get(path){try{const v=await this.call(`contents/${path}?ref=main`);return {value:decodeJSON(v.content),sha:v.sha};}catch(e){if(e.status===404)return {value:null,sha:null};throw e;}}
  async put(path,value,sha){return this.call(`contents/${path}`,{method:'PUT',body:{message:'Save S-Generator project [skip ci]',branch:'main',content:encodeJSON(value),...(sha?{sha}:{})}});}
  async dispatch(project,request){return this.call('actions/workflows/mobile.yml/dispatches',{method:'POST',body:{ref:'main',inputs:{project,request}}});}
@@ -32,3 +32,4 @@ export function resolveJobState(job,run,active,now=Date.now()){
  if(run?.status==='completed'&&run.conclusion!=='success')return run.conclusion==='cancelled'?'cancelled':'failed';
  return job?.status||'queued';
 }
+
