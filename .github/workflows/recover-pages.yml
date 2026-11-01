@@ -17,5 +17,5 @@ jobs:
           GH_REPO: ${{ github.repository }}
           STALLED_DEPLOYMENT: 9eda61b66c1cd30d17a4a13a3fe324aa17f39417
         run: |
-          gh api "repos/$GH_REPO/pages/deployments/$STALLED_DEPLOYMENT/status" --jq '.status'
+          gh api "repos/$GH_REPO/pages/deployments/$STALLED_DEPLOYMENT" --jq '.status'
           gh api --method POST "repos/$GH_REPO/pages/deployments/$STALLED_DEPLOYMENT/cancel"
