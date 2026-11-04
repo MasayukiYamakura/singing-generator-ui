@@ -1,4 +1,4 @@
-export const CLIENT_BUILD='0.5.3';
+export const CLIENT_BUILD='0.6.0';
 export const uuid=()=>crypto.randomUUID().replaceAll('-','');
 export const bytes64=bytes=>{let s='';for(let i=0;i<bytes.length;i+=8192)s+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(s)};
 export const from64=s=>Uint8Array.from(atob(s.replace(/\s/g,'')),c=>c.charCodeAt(0));
