@@ -35,17 +35,18 @@ export function mountMV(context){
   const response=await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(permit.cloud_name)}/video/upload`,{method:'POST',body:form});
   if(!response.ok)throw Error(`曲の非公開登録に失敗しました (HTTP ${response.status})`);
   const saved=await response.json();
-  if(saved.resource_type!=='video'||saved.type!=='authenticated'||saved.public_id!==permit.upload.public_id||saved.format!==allowed[extension])throw Error('曲の保存先・形式を確認できません');
+  if(saved.resource_type!=='video'||saved.type!=='authenticated'||saved.public_id!==permit.upload.public_id||!(saved.format===allowed[extension]||(extension==='.m4a'&&saved.format==='mp4')))throw Error('曲の保存先・形式を確認できません');
   if(Number.isFinite(saved.duration)&&saved.duration>360)throw Error('曲は6分以内にしてください');
   track={public_id:saved.public_id,format:saved.format,type:saved.type,duration:Number.isFinite(saved.duration)?saved.duration:null};
   localStorage.setItem(`sg-mv-track-${project.id}`,JSON.stringify(track));
+  if(track.duration>=1)$('mvSeconds').value=Math.min(360,Math.floor(track.duration*10)/10);
   status('完成曲を非公開で登録しました。音声は補正せずにMVへ使います。');
  }
  async function poll(){if(!active)return;const {api,project}=current();
   const {value:job}=await api.get(path(project,active.id,'jobs'));
   let run;try{const page=await api.call('actions/workflows/live-mv.yml/runs?event=workflow_dispatch&per_page=100');run=page.workflow_runs.find(x=>x.display_title===`mv-${project.id}-${active.id}`);}catch{}
   if(run){$('mvRunLink').href=run.html_url;$('mvRunLink').hidden=false;}
-  if(job?.status==='waiting'){status(`Kaggleで生成中・回収待ち (${job.kaggle_status||job.submission||'送信中'})。同じ版の回収を実行できます。`);return;}
+  if(job?.status==='waiting'){status(job.kind==='series'?`曲全体を生成中：${job.completed_segments||0}/${job.segments}区間。現在の区間を回収して次へ進めます。`:`Kaggleで生成中・回収待ち (${job.kaggle_status||job.submission||'送信中'})。同じ版の回収を実行できます。`);return;}
   if(run?.status==='completed'&&run.conclusion!=='success'){status(`MV処理が失敗しました。${job?.error||'ActionsのログとKaggleの非公開Kernelを確認してください。'} 新規送信は自動で行いません。`);return;}
   if(job?.status==='failed'){status(job.error||'MV生成に失敗しました。');return;}
   if(job?.status!=='completed'){status(`MV処理中：${job?.stage||'Actionsの起動を待っています。'}`);return;}
@@ -61,7 +62,7 @@ export function mountMV(context){
    const link=document.createElement('a');link.href=response.url;link.download='s-generator-live-mv.mp4';link.target='_blank';link.rel='noopener noreferrer';link.textContent='完成MP4を開く・ダウンロード';
    $('mvPlayer').append(video,link);status(`非公開リンクは${new Date(response.expires_at*1000).toLocaleTimeString()}まで有効です。映像と音声を確認してください。`);
   }else if(active.operation==='delete'){status('選択したMVを削除しました。Kaggleの実行履歴は別管理です。');$('mvPlayer').replaceChildren();await history();}
-  else if(response.status==='waiting'){status('Kaggleで生成中です。後で同じ実行版の回収を行ってください。');}
+  else if(response.status==='waiting'){status(response.segments?`曲全体を生成中：${response.completed_segments}/${response.segments}区間。しばらくして「続きの生成・回収」を押してください。`:'Kaggleで生成中です。後で同じ実行版の回収を行ってください。');active={id:active.source,source:active.source,operation:'submit',created_at:Date.now()};store(project);return;}
   else {status('MVを保存しました。履歴から選んで非公開の試聴リンクを取得できます。');await history();$('mvHistory').value=active.source;}
   active=null;store(project);
  }
@@ -76,13 +77,13 @@ export function mountMV(context){
    if(!result||result.demo||result.storage!=='saved'||!result.assets?.some(x=>['mix_corrected','mastered'].includes(x.name))||!result.assets?.some(x=>x.name==='corrected'))throw Error('保存済みの実声音源を選んでください');
   }else if(!track)throw Error('先に完成曲を非公開で登録してください');
   if(variant==='face'&&!photo)throw Error('先に本人の写真を非公開で登録してください');
-  if(![1,5,10,77].includes(seconds)||!Number.isFinite(start)||start<0||start+seconds>360)throw Error('長さと開始位置を確認してください');
+  if(!Number.isFinite(seconds)||seconds<1||seconds>(sourceKind==='track'?360:77)||!Number.isFinite(start)||start<0||start+seconds>360)throw Error('長さと開始位置を確認してください（加工音源は77秒、完成曲は360秒まで）');
   if(sourceKind==='track'&&track.duration&&start+seconds>track.duration+.05)throw Error('選んだ区間が完成曲の長さを超えています');
-  if(mode==='ai'&&seconds===77&&!confirm('77秒のGPU試験はKaggleの実行上限で失敗する可能性があります。続けますか？'))return;
+  if(mode==='ai'&&sourceKind==='processed'&&seconds>10&&!confirm('長尺のGPU生成はKaggleの実行上限で失敗する可能性があります。続けますか？'))return;
   await request('submit',{source_kind:sourceKind,...(sourceKind==='track'?{track}:{audio_request:audio}),variant,mode,seconds,start,...(variant==='face'?{photo}:{})});
  });
  $('mvRefresh').onclick=()=>guarded(async()=>{await history();await poll();});
- $('mvCollect').onclick=()=>guarded(async()=>{const {project}=current();if(!active||!['submit','collect'].includes(active.operation))throw Error('回収するMV依頼がありません。');const source=active.source;const {api}=current();const {value:job}=await api.get(path(project,source,'jobs'));if(!job?.version_ref)throw Error('Kaggleの確定版番号がありません。Actionsと非公開Kernelを確認してください');await request('collect',{source_request:source});});
+ $('mvCollect').onclick=()=>guarded(async()=>{const {project}=current();if(!active||!['submit','collect'].includes(active.operation))throw Error('回収するMV依頼がありません。');const source=active.source;const {api}=current();const {value:job}=await api.get(path(project,source,'jobs'));if(!job?.version_ref&&job?.kind!=='series')throw Error('Kaggleの確定版番号がありません。Actionsと非公開Kernelを確認してください');await request('collect',{source_request:source});});
  $('mvPlayback').onclick=()=>guarded(async()=>{const source=$('mvHistory').value;if(!source)throw Error('MV履歴から選択してください');await request('playback',{source_request:source});});
  $('mvDelete').onclick=()=>guarded(async()=>{const source=$('mvHistory').value;if(!source)throw Error('削除するMVを選択してください');if(!confirm('選択した完成MVをCloudinaryから削除しますか？'))return;await request('delete',{source_request:source});});
  setInterval(()=>{if(context().api&&context().project&&active&&!document.hidden)guarded(poll);},12000);
