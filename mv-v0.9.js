@@ -4,9 +4,9 @@ export function mountMV(context){
  const $=id=>document.getElementById(id);
  const text=message=>{$('mvStatus').textContent=message;};
  let saved={},projectId=null,busy=false,permits={},results=new Map();
- const current=()=>{const c=context();if(!c.api||!c.project)throw Error('先にGitHubへ接続してプロジェクトを選んでください');return c;};
+ const current=()=>{const c=context();if(!c.api||!c.project)throw Error('先にGitHubへ接続してプロジェクトを選んでください');if(projectId&&c.project.id!==projectId)throw Error('プロジェクトの切り替えを待っています');return c;};
  const persist=()=>localStorage.setItem(`sg-studio-${projectId}`,JSON.stringify(saved));
- const guarded=async task=>{if(busy)return;busy=true;try{await task();}catch(e){text(e.message);}finally{busy=false;}};
+ const guarded=async task=>{if(busy)return;busy=true;try{await task();}catch(e){text(e.message);}finally{busy=false;if(context().api&&context().project&&context().project.id!==projectId)await load();}};
  const path=(id,kind)=>`projects/${projectId}/mv/${kind}/${id}.json`;
  async function history(){
   const {api}=current();let entries=[];
@@ -113,7 +113,8 @@ export function mountMV(context){
   saved.active=null;persist();
  }
  async function load(){
-  const {project}=current();if(projectId!==project.id){
+  if(busy)return;
+  const {project,api}=context();if(!project||!api)return;if(projectId!==project.id){
    projectId=project.id;saved=JSON.parse(localStorage.getItem(`sg-studio-${projectId}`)||'{}');
    for(const key of ['track','photo'])if(!saved[key])saved[key]=JSON.parse(localStorage.getItem(`sg-mv-${key}-${projectId}`)||'null');
    permits={};$('mvPlayer').replaceChildren();$('mvRunLink').hidden=true;
