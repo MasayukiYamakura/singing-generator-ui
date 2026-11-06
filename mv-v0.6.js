@@ -39,6 +39,7 @@ export function mountMV(context){
   if(Number.isFinite(saved.duration)&&saved.duration>360)throw Error('曲は6分以内にしてください');
   track={public_id:saved.public_id,format:saved.format,type:saved.type,duration:Number.isFinite(saved.duration)?saved.duration:null};
   localStorage.setItem(`sg-mv-track-${project.id}`,JSON.stringify(track));
+  if(track.duration>=1)$('mvSeconds').value=Math.min(360,Math.floor(track.duration*10)/10);
   status('完成曲を非公開で登録しました。音声は補正せずにMVへ使います。');
  }
  async function poll(){if(!active)return;const {api,project}=current();
