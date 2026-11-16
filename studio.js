@@ -12,10 +12,11 @@ export function validateStudio(s){
 const $=id=>document.getElementById(id);
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
 export function mountStudio(){
- const state={vocal:{trim_start:0,trim_end:360,position:0},backing:{trim_start:0,trim_end:360,position:0}}, data={vocal:null,backing:null};
+ const state={vocal:{trim_start:0,trim_end:360,position:0},backing:{trim_start:0,trim_end:360,position:0}},automation={vocal:[],backing:[]}, data={vocal:null,backing:null};
  let windowStart=0,windowLength=30,active=null,context=null,playing=[],playTimer=null;
  const undo=[],redo=[];
- const snapshot=()=>structuredClone(state);
+ const snapshot=()=>({edits:structuredClone(state),curves:structuredClone(automation)});
+ const restore=x=>{Object.assign(state,x.edits);Object.assign(automation,x.curves);refresh();};
  const pushUndo=()=>{undo.push(snapshot());if(undo.length>40)undo.shift();redo.length=0;};
  function fields(name){return {start:$(name+'TrimStart'),end:$(name+'TrimEnd'),position:$(name+'Position'),canvas:$(name+'Wave')};}
  function draw(name){
@@ -34,7 +35,7 @@ export function mountStudio(){
   ctx.fillStyle='#fff';for(const x of [first,last]){ctx.fillRect(x-5,20,10,height-24);}
   ctx.fillStyle='#e2f9f0';ctx.font='12px sans-serif';ctx.fillText('両端をドラッグしてトリミング・中央をドラッグして移動',8,height-7);
  }
- function refresh(){for(const name of ['vocal','backing']){const e=state[name],f=fields(name);f.start.value=e.trim_start.toFixed(2);f.end.value=e.trim_end.toFixed(2);f.position.value=e.position.toFixed(2);draw(name);}
+ function refresh(){for(const name of ['vocal','backing']){const e=state[name],f=fields(name);f.start.value=e.trim_start.toFixed(2);f.end.value=e.trim_end.toFixed(2);f.position.value=e.position.toFixed(2);draw(name);drawCurve(name);}
   $('studioViewStart').value=windowStart;$('studioViewStart').max=Math.max(0,Math.ceil(Math.max(...Object.values(state).map(e=>e.position+e.trim_end-e.trim_start))-windowLength));}
  function update(name,field,value){if(!Number.isFinite(value))throw Error('秒数を確認してください');pushUndo();const e=state[name],max=data[name]?.duration??360;e[field]=Math.round(clamp(value,0,field==='position'?390:max)*100)/100;if(e.trim_end<=e.trim_start){e[field]=field==='trim_start'?Math.max(0,e.trim_end-.01):Math.min(max,e.trim_start+.01);}refresh();}
  for(const name of ['vocal','backing']){
@@ -61,12 +62,12 @@ export function mountStudio(){
  function read(){
   const edits=structuredClone(state),mix={genre:$('studioGenre').value,automix:$('studioAutoMix').checked,
    vocal_db:Number($('studioVocalGain').value),backing_db:Number($('studioBackingGain').value),harmony_db:0,
-   harmony:$('studioHarmony').checked?[{semitones:Number($('studioHarmonyInterval').value),db:Number($('studioHarmonyGain').value)}]:[]};
+   harmony:$('studioHarmony').checked?[{semitones:Number($('studioHarmonyInterval').value),db:Number($('studioHarmonyGain').value)}]:[],vocal_automation:structuredClone(automation.vocal),backing_automation:structuredClone(automation.backing)};
   const master={preset:$('studioMaster').value,intensity:$('studioIntensity').value,input_gain_db:Number($('studioInputGain').value),target_lufs:Number($('studioLufs').value)};
   return validateStudio({version:1,edits,mix,master});
  }
  function fill(s){stop();undo.length=0;redo.length=0;const edits=s?.edits||{};for(const name of ['vocal','backing']){Object.assign(state[name],{trim_start:0,trim_end:360,position:0},edits[name]||{});data[name]=null;}
-  const m=s?.mix||{},master=s?.master||{};for(const [id,value] of Object.entries({studioGenre:m.genre||'manual',studioAutoMix:!!m.automix,studioVocalGain:m.vocal_db??0,studioBackingGain:m.backing_db??0,studioHarmony:!!m.harmony?.length,studioHarmonyInterval:m.harmony?.[0]?.semitones??7,studioHarmonyGain:m.harmony?.[0]?.db??-18,studioMaster:master.preset||'none',studioIntensity:master.intensity||'normal',studioInputGain:master.input_gain_db??0,studioLufs:master.target_lufs??-14})){if($(id).type==='checkbox')$(id).checked=value;else $(id).value=value;}refresh();}
+  const m=s?.mix||{},master=s?.master||{};automation.vocal=structuredClone(m.vocal_automation||[]);automation.backing=structuredClone(m.backing_automation||[]);for(const [id,value] of Object.entries({studioGenre:m.genre||'manual',studioAutoMix:!!m.automix,studioVocalGain:m.vocal_db??0,studioBackingGain:m.backing_db??0,studioHarmony:!!m.harmony?.length,studioHarmonyInterval:m.harmony?.[0]?.semitones??7,studioHarmonyGain:m.harmony?.[0]?.db??-18,studioMaster:master.preset||'none',studioIntensity:master.intensity||'normal',studioInputGain:master.input_gain_db??0,studioLufs:master.target_lufs??-14})){if($(id).type==='checkbox')$(id).checked=value;else $(id).value=value;}refresh();}
 
  function stop(){if(playTimer)clearTimeout(playTimer);playTimer=null;for(const src of playing){try{src.stop();}catch{}}playing=[];}
  async function preview(){stop();context??=new AudioContext();await context.resume();const start=Number($('studioLoopStart').value),end=Number($('studioLoopEnd').value);
@@ -83,7 +84,41 @@ export function mountStudio(){
  }
  $('studioPreview').onclick=()=>preview().catch(e=>{$('studioHint').textContent=e.message;});
  $('studioStop').onclick=stop;
- $('studioUndo').onclick=()=>{if(!undo.length)return;redo.push(snapshot());Object.assign(state,undo.pop());refresh();};
- $('studioRedo').onclick=()=>{if(!redo.length)return;undo.push(snapshot());Object.assign(state,redo.pop());refresh();};
+ $('studioUndo').onclick=()=>{if(!undo.length)return;redo.push(snapshot());restore(undo.pop());};
+ $('studioRedo').onclick=()=>{if(!redo.length)return;undo.push(snapshot());restore(redo.pop());};
+
+ let selected=null,dragCurve=null;
+ function drawCurve(name){
+  const canvas=$(name+'Curve'),ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height,points=automation[name];
+  ctx.fillStyle='#12232b';ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle=name==='vocal'?'#39d8a2':'#f47b5d';ctx.lineWidth=3;ctx.beginPath();
+  for(let x=0;x<w;x+=3){const t=windowStart+x/w*windowLength;let db=0;
+   if(points.length){if(t<=points[0].time)db=points[0].db;else if(t>=points.at(-1).time)db=points.at(-1).db;
+    else{const j=points.findIndex(p=>p.time>=t),a=points[j-1],b=points[j];db=a.db+(b.db-a.db)*(t-a.time)/(b.time-a.time);}}
+   const y=(12-db)/48*h;if(x===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+  }ctx.stroke();
+  for(const p of points){if(p.time<windowStart||p.time>windowStart+windowLength)continue;
+   const x=(p.time-windowStart)/windowLength*w,y=(12-p.db)/48*h;ctx.fillStyle=selected?.point===p?'#fff':'#ffd56b';ctx.beginPath();ctx.arc(x,y,8,0,Math.PI*2);ctx.fill();}
+  ctx.fillStyle='#d6ebed';ctx.font='12px sans-serif';ctx.fillText(points.length?'点をドラッグして音量変更':'時刻と音量を入力して点を追加',8,h-7);
+ }
+ function addPoint(name){
+  const time=Number($('curveTime').value),db=Number($('curveDb').value);
+  if(!Number.isFinite(time)||time<0||time>390||!Number.isFinite(db)||db< -36||db>12)throw Error('音量カーブの時刻・音量を確認してください');
+  if(automation[name].some(p=>Math.abs(p.time-time)<.01)||automation[name].length>=60)throw Error('同じ時刻の点、または点の上限です');
+  pushUndo();const point={time,db};automation[name].push(point);automation[name].sort((a,b)=>a.time-b.time);selected={name,point};refresh();
+ }
+ $('addVocalPoint').onclick=()=>{try{addPoint('vocal');}catch(e){$('studioHint').textContent=e.message;}};
+ $('addBackingPoint').onclick=()=>{try{addPoint('backing');}catch(e){$('studioHint').textContent=e.message;}};
+ $('removeCurvePoint').onclick=()=>{if(!selected)return;pushUndo();automation[selected.name]=automation[selected.name].filter(p=>p!==selected.point);selected=null;refresh();};
+ for(const name of ['vocal','backing']){
+  const canvas=$(name+'Curve');
+  canvas.addEventListener('pointerdown',e=>{const rect=canvas.getBoundingClientRect(),x=(e.clientX-rect.left)/rect.width*canvas.width,y=(e.clientY-rect.top)/rect.height*canvas.height;
+   const point=automation[name].find(p=>Math.abs((p.time-windowStart)/windowLength*canvas.width-x)<18&&Math.abs((12-p.db)/48*canvas.height-y)<18);
+   if(!point)return;pushUndo();selected={name,point};dragCurve={name,point};canvas.setPointerCapture(e.pointerId);refresh();});
+  canvas.addEventListener('pointermove',e=>{if(!dragCurve||dragCurve.name!==name)return;const rect=canvas.getBoundingClientRect(),x=(e.clientX-rect.left)/rect.width,y=(e.clientY-rect.top)/rect.height,points=automation[name],index=points.indexOf(dragCurve.point);
+   const lo=index?points[index-1].time+.01:0,hi=index<points.length-1?points[index+1].time-.01:390;
+   dragCurve.point.time=Math.round(clamp(windowStart+x*windowLength,lo,hi)*100)/100;dragCurve.point.db=Math.round(clamp(12-y*48,-36,12)*10)/10;refresh();});
+  canvas.addEventListener('pointerup',()=>{dragCurve=null;});canvas.addEventListener('pointercancel',()=>{dragCurve=null;});
+ }
  refresh();return {read,fill,attach};
 }
