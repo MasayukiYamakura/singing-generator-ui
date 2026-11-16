@@ -74,7 +74,7 @@ export function mountStudio(){
   if(!Number.isFinite(start)||!Number.isFinite(end)||start<0||end<=start||end>390)throw Error('試聴区間を確認してください');
   if(!data.vocal?.buffer&&!data.backing?.buffer)throw Error('先に歌声か伴奏のファイルを選んでください');
   const now=context.currentTime+.08;
-  for(const name of ['vocal','backing']){const info=data[name],e=state[name];if(!info?.buffer||$(name==='vocal'?'studioMuteVocal':'studioMuteBacking').checked)continue;
+  for(const name of ['vocal','backing']){const info=data[name],e=state[name];if(!info?.buffer||$(name==='vocal'?'studioMuteVocal':'studioMuteBacking').checked||($('studioSoloVocal').checked||$('studioSoloBacking').checked)&&!$(name==='vocal'?'studioSoloVocal':'studioSoloBacking').checked)continue;
    const from=Math.max(start,e.position),to=Math.min(end,e.position+e.trim_end-e.trim_start);
    if(to<=from)continue;const offset=e.trim_start+from-e.position;
    const source=context.createBufferSource(),gain=context.createGain();source.buffer=info.buffer;gain.gain.value=.7;
