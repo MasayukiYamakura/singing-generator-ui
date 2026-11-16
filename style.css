@@ -3,3 +3,13 @@
 .grid>label,.file-grid>label{min-width:0}input,select,textarea{min-width:0}
 
 .phrase-card{background:#f6f8f3;border:1px solid #dce5d8;border-radius:13px;padding:16px;margin:16px 0}.phrase-card>strong{font-size:13px;color:#426b55}.phrase-card .row button{font-size:12px}.phrase-card label{font-size:12px}
+
+/* Two-track touch editor */
+.wave-track{margin:1rem 0;padding:.8rem;border:1px solid #39535c;border-radius:14px;background:#12232b}
+.wave-track strong{display:block;margin-bottom:.4rem}
+.wave-track canvas{display:block;width:100%;height:115px;border-radius:8px;touch-action:none;cursor:grab}
+.wave-track canvas:active{cursor:grabbing}
+.wave-track .grid{margin-top:.7rem}
+.wave-track input{min-width:0;width:100%}
+#songStudio details{margin-top:.8rem}
+#studioViewStart{width:100%}
