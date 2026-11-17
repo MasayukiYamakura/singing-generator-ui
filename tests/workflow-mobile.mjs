@@ -19,11 +19,13 @@ try{
       const el=document.querySelector('.wave-track strong');
       return {fg:getComputedStyle(el).color,bg:getComputedStyle(el.closest('.wave-track')).backgroundColor,
         overflow:document.documentElement.scrollWidth>innerWidth+1,
+        width:innerWidth,scrollWidth:document.documentElement.scrollWidth,
+        culprits:[...document.querySelectorAll('body *')].filter(e=>{const r=e.getBoundingClientRect();return r.right>innerWidth+2||r.left< -2}).slice(0,12).map(e=>`${e.tagName}#${e.id}.${e.className} ${Math.round(e.getBoundingClientRect().left)}..${Math.round(e.getBoundingClientRect().right)}`),
         hit:document.querySelector('#studioPreview').getBoundingClientRect().height};
     });
     assert.equal(metrics.fg,'rgb(231, 243, 240)');
     assert.equal(metrics.bg,'rgb(18, 35, 43)');
-    assert.equal(metrics.overflow,false,`${width}px has horizontal overflow`);
+    assert.equal(metrics.overflow,false,`${width}px has horizontal overflow: ${JSON.stringify(metrics)}`);
     assert.ok(metrics.hit>=44);
     await page.getByRole('button',{name:'2 音源を用意'}).click();
     assert.equal(await page.locator('#songSeparation').isVisible(),true);
