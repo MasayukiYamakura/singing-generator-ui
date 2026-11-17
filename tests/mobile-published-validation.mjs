@@ -1,0 +1,48 @@
+import assert from 'node:assert/strict';
+import { webkit, devices } from 'playwright';
+
+const browser = await webkit.launch();
+try {
+  const context = await browser.newContext({...devices['iPhone 13'], locale: 'ja-JP'});
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  const response = await page.goto('https://masayukiyamakura.github.io/singing-generator-ui/', {waitUntil:'networkidle', timeout:60000});
+  assert.equal(response.status(), 200, 'published page HTTP status');
+  await page.getByText('2トラック編集・ミックス・マスタリング').waitFor();
+  assert.match(await page.locator('header').innerText(), /v0\.9\.0/);
+  await page.waitForFunction(() => document.getElementById('clientVersion').textContent.includes('v0.9.0'), {timeout:15000});
+  assert.equal(errors.length, 0, 'browser JS errors: ' + errors.join('; '));
+  const seconds = 4, rate = 44100, count = seconds * rate;
+  const wav = Buffer.alloc(44 + count * 2);
+  wav.write('RIFF',0); wav.writeUInt32LE(wav.length-8,4); wav.write('WAVEfmt ',8);
+  wav.writeUInt32LE(16,16); wav.writeUInt16LE(1,20); wav.writeUInt16LE(1,22);
+  wav.writeUInt32LE(rate,24); wav.writeUInt32LE(rate*2,28);
+  wav.writeUInt16LE(2,32); wav.writeUInt16LE(16,34);
+  wav.write('data',36); wav.writeUInt32LE(count*2,40);
+  for(let i=0;i<count;i++)wav.writeInt16LE(Math.round(5000*Math.sin(2*Math.PI*220*i/rate)),44+i*2);
+  await page.locator('#vocal').setInputFiles({name:'voice.wav',mimeType:'audio/wav',buffer:wav});
+  await page.locator('#backing').setInputFiles({name:'backing.wav',mimeType:'audio/wav',buffer:wav});
+  await page.waitForFunction(() => Number(document.getElementById('vocalTrimEnd').value)===4 && Number(document.getElementById('backingTrimEnd').value)===4);
+  await page.locator('#studioZoom').selectOption('10');
+  const canvas = page.locator('#vocalWave');await canvas.scrollIntoViewIfNeeded();
+  const box = await canvas.boundingBox();
+  assert.ok(box && box.width > 100);
+  const y = box.y+box.height/2;
+  await page.mouse.move(box.x+box.width*.20,y);
+  await page.mouse.down();await page.mouse.move(box.x+box.width*.30,y,{steps:8});await page.mouse.up();
+  const pos=Number(await page.locator('#vocalPosition').inputValue());
+  assert.ok(pos>.8 && pos<1.2, 'drag updated position: '+pos);
+  await page.locator('#studioUndo').click();
+  assert.equal(Number(await page.locator('#vocalPosition').inputValue()),0);
+  await page.locator('#studioRedo').click();
+  assert.ok(Number(await page.locator('#vocalPosition').inputValue())>.8);
+  const right=box.x+box.width*(pos+4)/10;
+  await page.mouse.move(right,y);await page.mouse.down();
+  await page.mouse.move(right-box.width*.05,y,{steps:7});await page.mouse.up();
+  assert.ok(Number(await page.locator('#vocalTrimEnd').inputValue())<3.7);
+  await page.locator('#studioPreview').click();
+  assert.equal(errors.length,0,'browser JS errors: '+errors.join('; '));
+  console.log('PASS published v0.9.0; iPhone-sized WebKit; file decode; waveform position/trim drag; undo/redo; local audio preview');
+  await page.screenshot({path:'mobile-studio-validation.png',fullPage:true});
+} finally {await browser.close();}
