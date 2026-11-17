@@ -11,7 +11,15 @@
 <label class="check"><input id="guideEnabled" type="checkbox">3音源から自動で補正を提案・適用する</label>
 <div class="grid"><label>自分が歌ったキーとAI歌声の差（半音）<input id="guideTranspose" type="number" min="-12" max="12" step="1" value="0"></label><label class="check"><input id="guidePitch" type="checkbox" checked>AI歌声を音程のお手本にする</label><label>声の強弱を参考にする<select id="guideDynamics"><option value="off">しない</option><option value="gentle" selected>控えめ（最大±2dB）</option><option value="standard">標準（最大±3dB）</option></select></label><label>本人録音のノイズ<select id="guideNoise"><option value="off">低減しない</option><option value="auto" selected>検出された場合に低減</option><option value="on">控えめに低減</option></select></label></div>
 <p class="help">AI歌声は強弱の目安です。Suno側で加工された絶対音量はコピーしません。ノイズは本人録音から判定します。録音したキーがAI歌声より7半音低い場合は「-7」。元の歌声と補正後を必ず試聴してください。</p><p id="guideStatus" class="help" role="status">処理後に照合結果を表示します。</p></section>
-<section class="panel" id="songStudio"><div class="section-title"><span class="step">03b</span><h2>2トラック編集・ミックス・マスタリング</h2></div>
+<section class="panel" id="songSeparation"><div class="section-title"><span class="step">03b</span><h2>完成曲から歌声と伴奏を分離</h2></div>
+<p class="help">完成済み楽曲1ファイルを登録し、2音源を非公開で生成します。処理後に歌声と伴奏を聴き、よければお手本と伴奏として採用してください。本人の歌声は別途登録します。</p>
+<label class="file">完成済み楽曲<input id="songFile" type="file" accept=".wav,.mp3,.m4a,.flac,audio/*"><small>100MB・6分以内。登録中は画面を開いたままにしてください。</small></label>
+<div class="row"><button id="songUpload" type="button">完成曲を非公開で登録</button><button id="songSeparate" type="button" class="primary">歌声と伴奏に分離</button></div>
+<p id="songStatus" class="help" role="status">完成曲は未登録です。</p><progress id="songProgress" max="100" value="0" hidden></progress>
+<div class="row"><label>過去の分離結果<select id="separationHistory"><option value="">結果を選択</option></select></label><button id="separationLoad" type="button">試聴リンクを再取得</button><button id="separationDelete" type="button">分離結果を削除</button></div>
+<div id="separationPlayers"></div><button id="separationAdopt" type="button" disabled>試聴した2音源を伴奏・お手本に採用</button>
+<p class="help">分離では音の混入や変化が残ります。採用後も2トラック編集で位置を確認できます。分離結果を削除すると採用した素材は使えなくなります。</p></section>
+<section class="panel" id="songStudio"><div class="section-title"><span class="step">03c</span><h2>2トラック編集・ミックス・マスタリング</h2></div>
 <p class="help" id="studioHint">素材を選ぶと波形を読み込みます。波形中央をドラッグして移動、両端をドラッグしてトリミング。元音源は変更されません。設定は「設定を保存」で保持します。仕上がりは処理後に試聴してください。</p>
 <div class="grid"><label>表示幅<select id="studioZoom"><option value="10">10秒</option><option value="30" selected>30秒</option><option value="60">60秒</option><option value="180">180秒</option><option value="360">曲全体</option></select></label><label>表示開始（秒）<input id="studioViewStart" type="range" min="0" max="330" step="1" value="0"></label></div>
 <div class="row"><button id="studioUndo" type="button">編集を戻す</button><button id="studioRedo" type="button">やり直す</button><button id="studioPreview" type="button">編集位置を試聴</button><button id="studioStop" type="button">停止</button></div><div class="grid"><label>試聴開始（秒）<input id="studioLoopStart" type="number" min="0" max="390" step=".1" value="0"></label><label>試聴終了（秒）<input id="studioLoopEnd" type="number" min="0" max="390" step=".1" value="30"></label><label class="check"><input id="studioLoop" type="checkbox">区間リピート</label></div><p class="help">この試聴は配置・トリミングの確認用。音程補正・ミックス・マスタリング後の音は「処理・試聴」で確認します。</p>
