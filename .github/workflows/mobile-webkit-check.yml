@@ -1,0 +1,28 @@
+name: Published mobile WebKit check
+on:
+  pull_request:
+    paths:
+      - tests/mobile-published-validation.mjs
+      - .github/workflows/mobile-webkit-check.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  webkit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-save playwright
+      - run: npx playwright install --with-deps webkit
+      - run: node tests/mobile-published-validation.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mobile-studio-screenshot
+          path: mobile-studio-validation.png
+          if-no-files-found: ignore
+          retention-days: 7
