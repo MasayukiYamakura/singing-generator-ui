@@ -22,7 +22,7 @@ export function mountStudio(){
  function draw(name){
   const {canvas}=fields(name),ctx=canvas.getContext('2d'),width=canvas.width,height=canvas.height,e=state[name],info=data[name];
   ctx.clearRect(0,0,width,height);ctx.fillStyle='#12232b';ctx.fillRect(0,0,width,height);
-  for(let t=Math.ceil(windowStart/5)*5;t<windowStart+windowLength;t+=5){const x=(t-windowStart)/windowLength*width;ctx.strokeStyle='#37505b';ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,height);ctx.stroke();ctx.fillStyle='#b6ced4';ctx.font='13px sans-serif';ctx.fillText(t+'s',x+2,13);}
+  for(let t=Math.ceil(windowStart/5)*5;t<windowStart+windowLength;t+=5){const x=(t-windowStart)/windowLength*width;ctx.strokeStyle='#54747a';ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,height);ctx.stroke();}
   const duration=info?.duration??Math.max(e.trim_end,30);
   const first=(e.position-windowStart)/windowLength*width,last=(e.position+e.trim_end-e.trim_start-windowStart)/windowLength*width;
   ctx.fillStyle='#12584c';ctx.fillRect(first,20,last-first,height-24);
@@ -31,20 +31,20 @@ export function mountStudio(){
     const source=e.trim_start+(windowStart+px/width*windowLength-e.position),bin=Math.floor(source/duration*info.peaks.length);
     const a=info.peaks[clamp(bin,0,info.peaks.length-1)]||0;ctx.moveTo(px,height/2-a*height*.36);ctx.lineTo(px,height/2+a*height*.36);
    }ctx.stroke();
-  }else{ctx.fillStyle='#d2e0e3';ctx.font='13px sans-serif';ctx.fillText('音源を選ぶと波形を表示します',Math.max(5,first+5),height/2);}
+  }
   ctx.fillStyle='#fff';for(const x of [first,last]){ctx.fillRect(x-5,20,10,height-24);}
-  ctx.fillStyle='#e2f9f0';ctx.font='12px sans-serif';ctx.fillText('両端をドラッグしてトリミング・中央をドラッグして移動',8,height-7);
  }
- function refresh(){for(const name of ['vocal','backing']){const e=state[name],f=fields(name);f.start.value=e.trim_start.toFixed(2);f.end.value=e.trim_end.toFixed(2);f.position.value=e.position.toFixed(2);draw(name);drawCurve(name);}
+ function drawRuler(){const ruler=$('studioRuler');ruler.replaceChildren();for(let t=Math.ceil(windowStart/5)*5;t<windowStart+windowLength;t+=5){const mark=document.createElement('span');mark.className='studio-ruler-mark';mark.style.left=`${(t-windowStart)/windowLength*100}%`;mark.textContent=`${t}秒`;ruler.append(mark);}}
+ function refresh(){drawRuler();for(const name of ['vocal','backing']){const e=state[name],f=fields(name);f.start.value=e.trim_start.toFixed(2);f.end.value=e.trim_end.toFixed(2);f.position.value=e.position.toFixed(2);$(name+'WaveStatus').textContent=data[name]?.peaks?'中央で移動・両端でトリミング。秒数欄でも微調整できます。':'音源を選ぶか保存済みの波形を読み込んでください。';draw(name);drawCurve(name);}
   $('studioViewStart').value=windowStart;$('studioViewStart').max=Math.max(0,Math.ceil(Math.max(...Object.values(state).map(e=>e.position+e.trim_end-e.trim_start))-windowLength));}
  function update(name,field,value){if(!Number.isFinite(value))throw Error('秒数を確認してください');pushUndo();const e=state[name],max=data[name]?.duration??360;e[field]=Math.round(clamp(value,0,field==='position'?390:max)*100)/100;if(e.trim_end<=e.trim_start){e[field]=field==='trim_start'?Math.max(0,e.trim_end-.01):Math.min(max,e.trim_start+.01);}refresh();}
  for(const name of ['vocal','backing']){
   const f=fields(name);
   for(const [key,element] of [['trim_start',f.start],['trim_end',f.end],['position',f.position]])element.addEventListener('change',()=>{try{update(name,key,Number(element.value));}catch(e){alert(e.message);refresh();}});
-  f.canvas.addEventListener('pointerdown',event=>{const rect=f.canvas.getBoundingClientRect(),x=(event.clientX-rect.left)/rect.width*f.canvas.width,e=state[name];
+  f.canvas.addEventListener('pointerdown',event=>{const rect=f.canvas.getBoundingClientRect(),x=(event.clientX-rect.left)/rect.width*f.canvas.width,e=state[name],handle=24/rect.width*f.canvas.width;
    const left=(e.position-windowStart)/windowLength*f.canvas.width,right=(e.position+e.trim_end-e.trim_start-windowStart)/windowLength*f.canvas.width;
-   if(x<left-14||x>right+14)return;
-   pushUndo();active={name,kind:Math.abs(x-left)<16?'trim_start':Math.abs(x-right)<16?'trim_end':'position',x:event.clientX,initial:{...e}};
+   if(x<left-handle||x>right+handle)return;
+   pushUndo();active={name,kind:Math.abs(x-left)<handle?'trim_start':Math.abs(x-right)<handle?'trim_end':'position',x:event.clientX,initial:{...e}};
    f.canvas.setPointerCapture(event.pointerId);event.preventDefault();});
   f.canvas.addEventListener('pointermove',event=>{if(!active||active.name!==name)return;const delta=(event.clientX-active.x)/f.canvas.getBoundingClientRect().width*windowLength,initial=active.initial;
    if(active.kind==='trim_start'){const next=clamp(initial.trim_start+delta,0,initial.trim_end-.01);state[name].trim_start=next;state[name].position=clamp(initial.position+next-initial.trim_start,0,390);}
@@ -59,6 +59,9 @@ export function mountStudio(){
    for(let i=0;i<bins;i++){let peak=0;const from=Math.floor(i*channel.length/bins),to=Math.floor((i+1)*channel.length/bins);for(let j=from;j<to;j+=Math.max(1,Math.floor((to-from)/40)))peak=Math.max(peak,Math.abs(channel[j]));peaks[i]=peak;}
    data[name]={duration,peaks,buffer};state[name].trim_end=Math.min(duration,state[name].trim_end);state[name].trim_start=Math.min(state[name].trim_start,Math.max(0,duration-.01));refresh();
   }catch(e){data[name]=null;refresh();$('studioHint').textContent='波形の読み込みに失敗しました。数値入力は使用できます。';}}
+ function attachOverview(name,overview){if(!['vocal','backing'].includes(name)||!overview)return;const duration=Number(overview.duration),peaks=overview.peaks;
+  if(!Number.isFinite(duration)||duration<=0||duration>360||!Array.isArray(peaks)||!peaks.length||peaks.length>1800||!peaks.every(x=>Number.isFinite(x)&&x>=0&&x<=1.1))throw Error('保存済み波形が不正です');
+  data[name]={duration,peaks:Float32Array.from(peaks),buffer:null};state[name].trim_end=Math.min(duration,state[name].trim_end);refresh();}
  function read(){
   const edits=structuredClone(state),mix={genre:$('studioGenre').value,automix:$('studioAutoMix').checked,
    vocal_db:Number($('studioVocalGain').value),backing_db:Number($('studioBackingGain').value),harmony_db:0,
@@ -72,7 +75,7 @@ export function mountStudio(){
  function stop(){if(playTimer)clearTimeout(playTimer);playTimer=null;for(const src of playing){try{src.stop();}catch{}}playing=[];}
  async function preview(){stop();context??=new AudioContext();await context.resume();const start=Number($('studioLoopStart').value),end=Number($('studioLoopEnd').value);
   if(!Number.isFinite(start)||!Number.isFinite(end)||start<0||end<=start||end>390)throw Error('試聴区間を確認してください');
-  if(!data.vocal?.buffer&&!data.backing?.buffer)throw Error('先に歌声か伴奏のファイルを選んでください');
+  if(!data.vocal?.buffer&&!data.backing?.buffer)throw Error('配置を重ねて試聴するには元ファイルを再選択してください。保存済み音源は各トラックで単独試聴できます。');
   const now=context.currentTime+.08;
   for(const name of ['vocal','backing']){const info=data[name],e=state[name];if(!info?.buffer||$(name==='vocal'?'studioMuteVocal':'studioMuteBacking').checked||($('studioSoloVocal').checked||$('studioSoloBacking').checked)&&!$(name==='vocal'?'studioSoloVocal':'studioSoloBacking').checked)continue;
    const from=Math.max(start,e.position),to=Math.min(end,e.position+e.trim_end-e.trim_start);
@@ -120,5 +123,6 @@ export function mountStudio(){
    dragCurve.point.time=Math.round(clamp(windowStart+x*windowLength,lo,hi)*100)/100;dragCurve.point.db=Math.round(clamp(12-y*48,-36,12)*10)/10;refresh();});
   canvas.addEventListener('pointerup',()=>{dragCurve=null;});canvas.addEventListener('pointercancel',()=>{dragCurve=null;});
  }
- refresh();return {read,fill,attach};
+ refresh();return {read,fill,attach,attachOverview};
 }
+
