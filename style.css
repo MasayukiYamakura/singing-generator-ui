@@ -54,3 +54,85 @@
 
 
 @media(max-width:560px){#studioEditActions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}#studioEditActions button{width:100%;min-height:52px;padding:10px 8px;line-height:1.35}}
+
+/* Display theme */
+.display-theme {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 13px;
+}
+.display-theme select {
+  width: auto;
+  margin: 0;
+  min-height: 44px;
+  padding: 6px 10px;
+}
+
+:root {
+  color-scheme: light;
+}
+header .display-theme {
+  margin-bottom: 0;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #10151c;
+  --panel: #19232b;
+  --raised: #24333b;
+  --ink: #eef5f3;
+  --muted: #b7cbc8;
+  --line: #718783;
+  --green: #8ddbc6;
+  background: var(--page);
+  color: var(--ink);
+}
+[data-theme="dark"] .hero {
+  background: radial-gradient(ellipse at 95% 45%, #223a35, transparent 65%);
+}
+[data-theme="dark"] :is(.brand small, .eyebrow, .hero p, .help, .note, details, footer, .file small, .job p, output, .phrase-card > strong, #workspaceSummary, .studio-ruler) {
+  color: var(--muted);
+}
+[data-theme="dark"] :is(.panel, .connection-drawer) {
+  background: var(--panel);
+  border-color: #415651;
+}
+[data-theme="dark"] :is(.file, .job, .phrase-card, .pill, .badge) {
+  background: var(--raised);
+  border-color: #526c64;
+}
+[data-theme="dark"] :is(input:not([type=checkbox]):not([type=range]), select, textarea) {
+  background: var(--page);
+  border-color: var(--line);
+  color: var(--ink);
+}
+[data-theme="dark"] .file input {
+  background: var(--page) !important;
+}
+[data-theme="dark"] :is(button, #workspaceNav button) {
+  background: var(--raised);
+  color: var(--ink);
+  border-color: var(--line);
+}
+[data-theme="dark"] :is(button.primary, #workspaceNav button[aria-current="step"]) {
+  background: var(--green);
+  border-color: var(--green);
+  color: #102d26;
+}
+[data-theme="dark"] .player {
+  border-color: #415651;
+}
+[data-theme="dark"] #workspaceNav {
+  background: var(--page);
+}
+[data-theme="dark"] #notice {
+  background: #203b30;
+  color: #d2f5df;
+  border-color: #769b82;
+}
+[data-theme="dark"] #notice.error {
+  background: #432c27;
+  color: #ffdace;
+  border-color: #b47d6a;
+}
