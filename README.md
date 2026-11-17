@@ -1,5 +1,7 @@
 # S-Generator UI — スマホ基本版
 
+現行機能の一覧は処理リポジトリの `docs/CURRENT_SPEC.md` に集約しています。2026-11-17に3音源のAI歌声お手本モードを追加。本人歌声・伴奏・お手本歌声を登録し、移調差、音程、強弱（最大±2/3 dB）、軽いノイズ低減を設定します。照合不能時はお手本由来の音程・強弱補正を控えて結果に要確認を表示します。BandLabやSunoの非公開DSPを再現するものではありません。
+
 画面上部の「← V-Generatorへ（動画制作・投稿）」から、動画制作・投稿画面を別タブで開けます。素材・設定・トークンはリンクへ含めません。
 GitHub Pagesで公開する画面。処理用の非公開 singing-generator と分離しています。
 `npm test` で基本ロジックを確認。ビルド不要。Pagesはmainルートを公開。
@@ -56,3 +58,4 @@ Pages内部状態が整合しないため同じ再実行を継続しない。復
 
 ## 公開画面・WebKit検証（2026-11-17）
 [GitHub Actionsの成功記録](https://github.com/MasayukiYamakura/singing-generator-ui/actions/runs/43988529698)。公開中のv0.9.0をiPhoneサイズのWebKitで読み込み、ブラウザ内で生成したWAVの歌声・伴奏を選択。波形の位置移動、末尾トリミング、取り消し/やり直し、配置位置の端末内試聴を実行した。スクリーンショットはActionsのprivate artifact（7日）。WebKitエミュレーションの成功はiPhone実機Safari・画面からのGitHub認証/Cloudinaryアップロード・人の声の試聴品質を意味しない。
+
