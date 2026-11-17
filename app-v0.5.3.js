@@ -3,7 +3,7 @@ import {mountStudio} from './studio.js?v=0.9.0';
 import {readGuide,fillGuide} from './guide.js?v=0.10.0';
 import {PhraseEditor,validatePhrases} from './phrases.js?v=0.5.3';
 import {parseMidi,melodyNotes} from './midi.js?v=0.5.3';
-import {CLIENT_BUILD,probeGitHub,uuid,GitHub,validateSettings,fileCheck,deviceKeys,decryptMailbox,from64,resolveJobState} from './core-v0.5.3.js';
+import {CLIENT_BUILD,probeGitHub,uuid,GitHub,validateSettings,fileCheck,deviceKeys,decryptMailbox,from64,resolveJobState} from './core-v0.5.3.js?v=0.10.0';
 import {mountMV} from './mv-v0.6.js?v=0.8.0';
 const $=id=>document.getElementById(id);
 let api=null,project=null,projectSha=null,keys=null,busy=false,timer=null,active=null,lastResponse=null;
