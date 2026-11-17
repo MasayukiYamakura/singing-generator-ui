@@ -71,3 +71,7 @@ Pages内部状態が整合しないため同じ再実行を継続しない。復
 ## 公開画面・WebKit検証（2026-11-17）
 [GitHub Actionsの成功記録](https://github.com/MasayukiYamakura/singing-generator-ui/actions/runs/43988529698)。公開中のv0.9.0をiPhoneサイズのWebKitで読み込み、ブラウザ内で生成したWAVの歌声・伴奏を選択。波形の位置移動、末尾トリミング、取り消し/やり直し、配置位置の端末内試聴を実行した。スクリーンショットはActionsのprivate artifact（7日）。WebKitエミュレーションの成功はiPhone実機Safari・画面からのGitHub認証/Cloudinaryアップロード・人の声の試聴品質を意味しない。
 
+
+## 表示テーマ
+
+画面上部の「表示テーマ」でライト（白基調）とダーク（黒基調）を切り替えられます。選択は同じブラウザーに保存され、同じ配信元のS・V・D-Generatorに反映されます。
