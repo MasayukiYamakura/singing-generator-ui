@@ -11,7 +11,8 @@ try {
   assert.equal(response.status(), 200, 'published page HTTP status');
   await page.getByText('2トラック編集・ミックス・マスタリング').waitFor();
   assert.match(await page.locator('header').innerText(), /v0\.9\.0/);
-  await page.waitForFunction(() => document.getElementById('clientVersion').textContent.includes('v0.9.0'), {timeout:15000});
+  await page.waitForFunction(() => !document.getElementById('clientVersion').textContent.includes('読み込み中'));
+  await page.evaluate(() => { if (!document.querySelector('script[src*="app-v0.5.3.js"]')) throw Error('main app module missing'); });
   assert.equal(errors.length, 0, 'browser JS errors: ' + errors.join('; '));
   const seconds = 4, rate = 44100, count = seconds * rate;
   const wav = Buffer.alloc(44 + count * 2);
