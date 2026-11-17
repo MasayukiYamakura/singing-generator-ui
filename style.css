@@ -13,3 +13,41 @@
 .wave-track input{min-width:0;width:100%}
 #songStudio details{margin-top:.8rem}
 #studioViewStart{width:100%}
+
+/* Workflow navigation and mobile reading sizes */
+#workspaceNav{position:sticky;top:0;z-index:5;display:flex;gap:6px;overflow-x:auto;padding:9px 4px;background:#f3f4ef;scrollbar-width:thin}
+#workspaceNav button{flex:0 0 auto;min-height:48px;padding:9px 15px;background:#fff;color:#24463f;border-color:#a8bbb1;font-size:14px}
+#workspaceNav button[aria-current="step"]{background:#1c615a;color:#fff;border-color:#1c615a}
+#workspaceSummary{margin:8px 0 18px;font-size:15px;font-weight:650;color:#29473f}
+.workspace-view[hidden]{display:none}
+.connection-drawer{margin-bottom:18px;border:1px solid #b9cbc0;border-radius:14px;background:#fff;padding:0 14px}
+.connection-drawer>summary{font-size:16px;font-weight:650;min-height:48px;display:list-item;padding:11px 4px}
+.connection-drawer>.panel{border:0;box-shadow:none;margin:0;padding:0 4px 18px}
+.section-title .step{display:none}
+.hero{padding:14px 4px 12px}.hero h1{font-size:clamp(25px,6vw,34px);margin:6px 0}.hero p{margin:8px 0}
+.panel{margin-bottom:16px}
+.panel label{font-size:15px}.help,.note{font-size:14px;line-height:1.55}
+.panel button{font-size:15px;min-height:48px}
+.panel .check{min-height:44px}.panel .check input{width:22px;height:22px;flex:none}
+
+/* The dark audio editor must not inherit the page's dark text. */
+.wave-track{color:#e7f3f0;border-color:#607e84;background:#12232b;padding:15px}
+.wave-track strong,.wave-track label,.wave-track .wave-status{color:#e7f3f0}
+.wave-track strong{font-size:18px}
+.wave-track label{font-size:15px;line-height:1.45}
+.wave-track .check{min-height:48px}
+.wave-track .check input{width:24px;height:24px}
+.wave-track canvas{height:120px;border:1px solid #607e84}
+.wave-track .wave-status{font-size:14px;margin:8px 0 0;line-height:1.45}
+.wave-track .grid{gap:4px 14px}
+.wave-track .grid label:last-child:nth-child(odd){grid-column:1/-1}
+.studio-ruler{height:35px;position:relative;margin:12px 15px -8px;border-bottom:1px solid #728981;color:#29473f;overflow:hidden;font-size:14px;font-weight:650}
+.studio-ruler-mark{position:absolute;top:0;transform:translateX(-12%);white-space:nowrap}
+.studio-ruler-mark:first-child{transform:none}
+@media(max-width:560px){
+ main{padding:0 12px}.panel{padding:18px 15px}.hero{padding:12px 4px}
+ .hero h1{font-size:27px}#workspaceNav{margin:0 -12px;padding:8px 12px}
+ .wave-track{padding:13px}.wave-track input:not([type=checkbox]){min-height:50px}
+}
+@media(max-width:350px){.wave-track .grid{grid-template-columns:1fr}}
+
