@@ -15,6 +15,15 @@ try{
     assert.equal(await page.locator('#songStudio').isVisible(),true);
     assert.equal(await page.locator('#materialsPanel').isVisible(),false);
     assert.match(await page.locator('#studioRuler').innerText(),/0秒/);
+    assert.match(await page.locator('#leaveStatus').innerText(),/待機中/);
+    await page.locator('#studioNudgeRight').click();
+    assert.equal(await page.locator('#vocalPosition').inputValue(),'0.10');
+    assert.match(await page.locator('#studioEditState').innerText(),/未保存/);
+    await page.locator('#vocalTrimStart').fill('0.50');
+    await page.locator('#vocalTrimStart').press('Tab');
+    assert.equal(await page.locator('#vocalPosition').inputValue(),'0.60');
+    await page.locator('#studioUndo').click();
+    assert.equal(await page.locator('#vocalPosition').inputValue(),'0.10');
     const metrics=await page.evaluate(()=>{
       const el=document.querySelector('.wave-track strong');
       return {fg:getComputedStyle(el).color,bg:getComputedStyle(el.closest('.wave-track')).backgroundColor,
