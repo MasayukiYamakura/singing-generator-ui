@@ -2,8 +2,8 @@ import {uuid,deviceKeys,decryptMailbox} from './core-v0.5.3.js';
 
 export function mountMV(context){
  const $=id=>document.getElementById(id);
- let active=null,permit=null,photo=null,track=null,busy=false,loadedProject=null;
- const status=message=>{$('mvStatus').textContent=message;};
+ let active=null,permit=null,photo=null,track=null,busy=false,loadedProject=null,uploading=false;
+ const status=message=>{$('mvStatus').textContent=message;const leave=$('leaveStatus');if(!leave)return;if(uploading){leave.textContent='MV素材をアップロード中です。この画面を閉じず、登録完了までお待ちください。';leave.dataset.stay='true';}else if(active){leave.textContent=active.operation==='track'||active.operation==='photo'?'MV素材の登録準備中です。自動アップロードするには画面を開いたままにしてください。':'MV処理は画面を離れても続きます。待機中は後で「続きの生成・回収」を押してください。';leave.dataset.stay=String(['track','photo'].includes(active.operation));}};
  const current=()=>{const {api,project}=context();if(!api||!project)throw Error('先にGitHubへ接続し、プロジェクトを選択してください');return {api,project};};
  const path=(project,id,kind)=>`projects/${project.id}/mv/${kind}/${id}.json`;
  const store=project=>{localStorage.setItem(`sg-mv-active-${project.id}`,JSON.stringify(active));};
@@ -22,7 +22,7 @@ export function mountMV(context){
  async function uploadPhoto(permit,file){
   const {project}=current();if(file.size>12*1024*1024||!['image/jpeg','image/png','image/webp'].includes(file.type))throw Error('JPEG・PNG・WebP、12MB以内の写真を選んでください');
   const form=new FormData();for(const [key,value] of Object.entries(permit.upload))form.append(key,String(value));form.append('file',file);
-  const response=await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(permit.cloud_name)}/image/upload`,{method:'POST',body:form});
+  uploading=true;status('写真の登録中です。');let response;try{response=await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(permit.cloud_name)}/image/upload`,{method:'POST',body:form});}finally{uploading=false;}
   if(!response.ok)throw Error(`写真の非公開登録に失敗しました (HTTP ${response.status})`);
   const saved=await response.json();if(saved.type!=='authenticated'||saved.public_id!==permit.upload.public_id||!['jpg','jpeg','png','webp'].includes(saved.format))throw Error('写真の保存先・形式を確認できません');
   photo={public_id:saved.public_id,format:saved.format,type:saved.type};localStorage.setItem(`sg-mv-photo-${project.id}`,JSON.stringify(photo));status('写真を非公開で登録しました。');
@@ -32,7 +32,7 @@ export function mountMV(context){
   const extension='.'+file.name.split('.').pop().toLowerCase();
   if(file.size>100*1024*1024||!allowed[extension])throw Error('WAV・MP3・M4A・FLAC、100MB以内の曲を選んでください');
   const form=new FormData();for(const [key,value] of Object.entries(permit.upload))form.append(key,String(value));form.append('file',file);
-  const response=await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(permit.cloud_name)}/video/upload`,{method:'POST',body:form});
+  uploading=true;status('完成曲の登録中です。');let response;try{response=await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(permit.cloud_name)}/video/upload`,{method:'POST',body:form});}finally{uploading=false;}
   if(!response.ok)throw Error(`曲の非公開登録に失敗しました (HTTP ${response.status})`);
   const saved=await response.json();
   if(saved.resource_type!=='video'||saved.type!=='authenticated'||saved.public_id!==permit.upload.public_id||!(saved.format===allowed[extension]||(extension==='.m4a'&&saved.format==='mp4')))throw Error('曲の保存先・形式を確認できません');
@@ -87,6 +87,7 @@ export function mountMV(context){
  $('mvPlayback').onclick=()=>guarded(async()=>{const source=$('mvHistory').value;if(!source)throw Error('MV履歴から選択してください');await request('playback',{source_request:source});});
  $('mvDelete').onclick=()=>guarded(async()=>{const source=$('mvHistory').value;if(!source)throw Error('削除するMVを選択してください');if(!confirm('選択した完成MVをCloudinaryから削除しますか？'))return;await request('delete',{source_request:source});});
  setInterval(()=>{if(context().api&&context().project&&active&&!document.hidden)guarded(poll);},12000);
+ window.addEventListener('beforeunload',e=>{if(uploading){e.preventDefault();e.returnValue='';}});
  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&active&&context().api&&context().project)guarded(poll);});
  return {load};
 }
