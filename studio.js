@@ -64,7 +64,7 @@ export function mountStudio(){
   f.canvas.addEventListener('pointerup',event=>{pointers.delete(event.pointerId);if(pointers.size<2)pinch=null;active=null;});f.canvas.addEventListener('pointercancel',event=>{pointers.delete(event.pointerId);pinch=null;if(active?.kind!=='pan'&&active){Object.assign(state[name],active.initial);undo.pop();dirty=undo.length>0;}active=null;refresh();});
  }
  for(const [id,sign] of [['studioNudgeLeft',-1],['studioNudgeRight',1]])$(id)?.addEventListener('click',()=>{const name=$('studioTrack').value;update(name,'position',state[name].position+sign*Number($('studioNudgeStep').value));});
- $('studioSave')?.addEventListener('click',()=>{$('saveSettings').click();dirty=false;refresh();});
+ $('studioSave')?.addEventListener('click',()=>$('saveSettings').click());
  $('studioZoom').addEventListener('change',()=>{windowLength=Number($('studioZoom').value);windowStart=0;refresh();});
  $('studioViewStart').addEventListener('input',()=>{windowStart=Number($('studioViewStart').value);refresh();});
  async function attach(name,file){if(!file)return;try{context??=new AudioContext();const buffer=await context.decodeAudioData(await file.arrayBuffer());const duration=buffer.duration,bins=1800,peaks=new Float32Array(bins),channel=buffer.getChannelData(0);
@@ -136,6 +136,6 @@ export function mountStudio(){
    dragCurve.point.time=Math.round(clamp(windowStart+x*windowLength,lo,hi)*100)/100;dragCurve.point.db=Math.round(clamp(12-y*48,-36,12)*10)/10;refresh();});
   canvas.addEventListener('pointerup',()=>{dragCurve=null;});canvas.addEventListener('pointercancel',()=>{dragCurve=null;});
  }
- refresh();return {read,fill,attach,attachOverview};
+ refresh();return {read,fill,attach,attachOverview,markSaved(){dirty=false;refresh();}};
 }
 
