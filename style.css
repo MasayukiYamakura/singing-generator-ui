@@ -44,6 +44,20 @@
 .studio-ruler{height:35px;position:relative;margin:12px 15px -8px;border-bottom:1px solid #728981;color:#29473f;overflow:hidden;font-size:14px;font-weight:650}
 .studio-ruler-mark{position:absolute;top:0;transform:translateX(-12%);white-space:nowrap}
 .studio-ruler-mark:first-child{transform:none}
+/* Shared timeline controls remain reachable on narrow phones. */
+.studio-toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:8px;padding:10px;background:#e9f1eb;border-radius:12px}
+.studio-toolbar label{flex:1 1 130px;margin:0;color:#24463f}
+.studio-toolbar button{flex:1 1 96px;min-height:48px}
+.studio-toolbar .check{align-self:center;min-height:48px}
+#studioEditState{font-weight:600;color:#315b45}
+#leaveStatus{position:sticky;top:0;z-index:4;padding:10px 14px;margin:0 0 12px;border-radius:10px;background:#e4f1e9;border:1px solid #80b89c;color:#174432;font-weight:650;font-size:13px}
+#leaveStatus[data-stay="true"]{background:#fff1d9;border-color:#bd8333;color:#613d10}
+#cleanupPanel{padding:10px 14px;border:1px solid #cbd7d0;border-radius:12px}
+#cleanupInventory{white-space:pre-line;color:#24463f;font-size:13px}
+[data-theme="dark"] .studio-toolbar{background:#1c3435}
+[data-theme="dark"] .studio-toolbar label,[data-theme="dark"] #studioEditState,[data-theme="dark"] #cleanupInventory{color:#e7f3f0}
+[data-theme="dark"] #leaveStatus{background:#153c33;color:#f3fff7}
+[data-theme="dark"] #leaveStatus[data-stay="true"]{background:#493310;color:#fff1d9}
 @media(max-width:560px){
  header{flex-wrap:wrap;gap:8px}.pill{white-space:normal;max-width:100%}
  main{padding:0 12px}.panel{padding:18px 15px}.hero{padding:12px 4px}

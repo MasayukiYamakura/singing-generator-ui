@@ -11,13 +11,18 @@ export function validateStudio(s){
 }
 const $=id=>document.getElementById(id);
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
+export function trimLeft(edit,value,duration=360){
+ const next=clamp(value,Math.max(0,edit.trim_start-edit.position),Math.min(edit.trim_end-.01,duration,edit.trim_start+390-edit.position));
+ return {...edit,trim_start:Math.round(next*100)/100,position:Math.round((edit.position+next-edit.trim_start)*100)/100};
+}
 export function mountStudio(){
  const state={vocal:{trim_start:0,trim_end:360,position:0},backing:{trim_start:0,trim_end:360,position:0}},automation={vocal:[],backing:[]}, data={vocal:null,backing:null};
- let windowStart=0,windowLength=30,active=null,context=null,playing=[],playTimer=null;
+ let windowStart=0,windowLength=30,active=null,context=null,playing=[],playTimer=null,playTicker=null,playhead=0,dirty=false;
+ const pointers=new Map();let pinch=null;
  const undo=[],redo=[];
  const snapshot=()=>({edits:structuredClone(state),curves:structuredClone(automation)});
- const restore=x=>{Object.assign(state,x.edits);Object.assign(automation,x.curves);refresh();};
- const pushUndo=()=>{undo.push(snapshot());if(undo.length>40)undo.shift();redo.length=0;};
+ const restore=x=>{Object.assign(state,x.edits);Object.assign(automation,x.curves);dirty=true;refresh();};
+ const pushUndo=()=>{undo.push(snapshot());if(undo.length>40)undo.shift();redo.length=0;dirty=true;};
  function fields(name){return {start:$(name+'TrimStart'),end:$(name+'TrimEnd'),position:$(name+'Position'),canvas:$(name+'Wave')};}
  function draw(name){
   const {canvas}=fields(name),ctx=canvas.getContext('2d'),width=canvas.width,height=canvas.height,e=state[name],info=data[name];
@@ -33,26 +38,33 @@ export function mountStudio(){
    }ctx.stroke();
   }
   ctx.fillStyle='#fff';for(const x of [first,last]){ctx.fillRect(x-5,20,10,height-24);}
+  const head=(playhead-windowStart)/windowLength*width;if(head>=0&&head<=width){ctx.fillStyle='#ffd56b';ctx.fillRect(head-1,0,2,height);}
  }
  function drawRuler(){const ruler=$('studioRuler');ruler.replaceChildren();for(let t=Math.ceil(windowStart/5)*5;t<windowStart+windowLength;t+=5){const mark=document.createElement('span');mark.className='studio-ruler-mark';mark.style.left=`${(t-windowStart)/windowLength*100}%`;mark.textContent=`${t}秒`;ruler.append(mark);}}
- function refresh(){drawRuler();for(const name of ['vocal','backing']){const e=state[name],f=fields(name);f.start.value=e.trim_start.toFixed(2);f.end.value=e.trim_end.toFixed(2);f.position.value=e.position.toFixed(2);$(name+'WaveStatus').textContent=data[name]?.peaks?'中央で移動・両端でトリミング。秒数欄でも微調整できます。':'音源を選ぶか保存済みの波形を読み込んでください。';draw(name);drawCurve(name);}
-  $('studioViewStart').value=windowStart;$('studioViewStart').max=Math.max(0,Math.ceil(Math.max(...Object.values(state).map(e=>e.position+e.trim_end-e.trim_start))-windowLength));}
- function update(name,field,value){if(!Number.isFinite(value))throw Error('秒数を確認してください');pushUndo();const e=state[name],max=data[name]?.duration??360;e[field]=Math.round(clamp(value,0,field==='position'?390:max)*100)/100;if(e.trim_end<=e.trim_start){e[field]=field==='trim_start'?Math.max(0,e.trim_end-.01):Math.min(max,e.trim_start+.01);}refresh();}
+ function refresh(){drawRuler();for(const name of ['vocal','backing']){const e=state[name],f=fields(name);f.start.value=e.trim_start.toFixed(2);f.end.value=e.trim_end.toFixed(2);f.position.value=e.position.toFixed(2);$(name+'WaveStatus').textContent=data[name]?.peaks?`配置 ${e.position.toFixed(2)}秒 / 元音源 ${e.trim_start.toFixed(2)}〜${e.trim_end.toFixed(2)}秒。中央で移動・両端でトリミング。`:'音源を選ぶか保存済みの波形を読み込んでください。';draw(name);drawCurve(name);}
+  $('studioViewStart').value=windowStart;$('studioViewStart').max=Math.max(0,Math.ceil(Math.max(...Object.values(state).map(e=>e.position+e.trim_end-e.trim_start))-windowLength));if($('studioEditState'))$('studioEditState').textContent=dirty?'未保存の位置合わせがあります。「編集を保存」で保持します。':'位置合わせは保存済み、または未変更です。';}
+ function update(name,field,value){if(!Number.isFinite(value))throw Error('秒数を確認してください');pushUndo();const e=state[name],max=data[name]?.duration??360;if(field==='trim_start')Object.assign(e,trimLeft(e,value,max));else {e[field]=Math.round(clamp(value,0,field==='position'?390:max)*100)/100;if(e.trim_end<=e.trim_start)e.trim_end=Math.min(max,e.trim_start+.01);}refresh();}
  for(const name of ['vocal','backing']){
   const f=fields(name);
   for(const [key,element] of [['trim_start',f.start],['trim_end',f.end],['position',f.position]])element.addEventListener('change',()=>{try{update(name,key,Number(element.value));}catch(e){alert(e.message);refresh();}});
   f.canvas.addEventListener('pointerdown',event=>{const rect=f.canvas.getBoundingClientRect(),x=(event.clientX-rect.left)/rect.width*f.canvas.width,e=state[name],handle=24/rect.width*f.canvas.width;
+   $('studioTrack')&&($('studioTrack').value=name);pointers.set(event.pointerId,event.clientX);
+   if(pointers.size===2){const xs=[...pointers.values()];pinch={distance:Math.abs(xs[0]-xs[1]),length:windowLength};active=null;f.canvas.setPointerCapture(event.pointerId);return;}
    const left=(e.position-windowStart)/windowLength*f.canvas.width,right=(e.position+e.trim_end-e.trim_start-windowStart)/windowLength*f.canvas.width;
-   if(x<left-handle||x>right+handle)return;
-   pushUndo();active={name,kind:Math.abs(x-left)<handle?'trim_start':Math.abs(x-right)<handle?'trim_end':'position',x:event.clientX,initial:{...e}};
+   playhead=clamp(windowStart+x/f.canvas.width*windowLength,0,390);
+   const pan=$('studioTool')?.value==='pan'||x<left-handle||x>right+handle;
+   if(!pan)pushUndo();active={name,kind:pan?'pan':Math.abs(x-left)<handle?'trim_start':Math.abs(x-right)<handle?'trim_end':'position',x:event.clientX,initial:{...e},start:windowStart};
    f.canvas.setPointerCapture(event.pointerId);event.preventDefault();});
-  f.canvas.addEventListener('pointermove',event=>{if(!active||active.name!==name)return;const delta=(event.clientX-active.x)/f.canvas.getBoundingClientRect().width*windowLength,initial=active.initial;
-   if(active.kind==='trim_start'){const next=clamp(initial.trim_start+delta,0,initial.trim_end-.01);state[name].trim_start=next;state[name].position=clamp(initial.position+next-initial.trim_start,0,390);}
-   else if(active.kind==='trim_end')state[name].trim_end=clamp(initial.trim_end+delta,initial.trim_start+.01,data[name]?.duration??360);
-   else state[name].position=clamp(initial.position+delta,0,390);
+  f.canvas.addEventListener('pointermove',event=>{if(pointers.has(event.pointerId))pointers.set(event.pointerId,event.clientX);if(pinch&&pointers.size===2){const xs=[...pointers.values()],distance=Math.abs(xs[0]-xs[1]);if(distance>12){windowLength=clamp(Math.round(pinch.length*pinch.distance/distance),10,360);$('studioZoom').value=String([10,30,60,180,360].reduce((a,b)=>Math.abs(b-windowLength)<Math.abs(a-windowLength)?b:a));refresh();}return;}if(!active||active.name!==name)return;const delta=(event.clientX-active.x)/f.canvas.getBoundingClientRect().width*windowLength,initial=active.initial;
+   if(active.kind==='pan')windowStart=clamp(active.start-delta,0,Math.max(0,390-windowLength));
+   else if(active.kind==='trim_start')Object.assign(state[name],trimLeft(initial,$('studioSnap')?.checked?Math.round(initial.trim_start+delta):initial.trim_start+delta,data[name]?.duration??360));
+   else if(active.kind==='trim_end')state[name].trim_end=clamp($('studioSnap')?.checked?Math.round(initial.trim_end+delta):initial.trim_end+delta,initial.trim_start+.01,data[name]?.duration??360);
+   else {const position=initial.position+delta;state[name].position=clamp($('studioSnap')?.checked?Math.round(position):Math.round(position*100)/100,0,390);}
    refresh();});
-  f.canvas.addEventListener('pointerup',()=>{active=null;});f.canvas.addEventListener('pointercancel',()=>{active=null;});
+  f.canvas.addEventListener('pointerup',event=>{pointers.delete(event.pointerId);if(pointers.size<2)pinch=null;active=null;});f.canvas.addEventListener('pointercancel',event=>{pointers.delete(event.pointerId);pinch=null;if(active?.kind!=='pan'&&active){Object.assign(state[name],active.initial);undo.pop();dirty=undo.length>0;}active=null;refresh();});
  }
+ for(const [id,sign] of [['studioNudgeLeft',-1],['studioNudgeRight',1]])$(id)?.addEventListener('click',()=>{const name=$('studioTrack').value;update(name,'position',state[name].position+sign*Number($('studioNudgeStep').value));});
+ $('studioSave')?.addEventListener('click',()=>$('saveSettings').click());
  $('studioZoom').addEventListener('change',()=>{windowLength=Number($('studioZoom').value);windowStart=0;refresh();});
  $('studioViewStart').addEventListener('input',()=>{windowStart=Number($('studioViewStart').value);refresh();});
  async function attach(name,file){if(!file)return;try{context??=new AudioContext();const buffer=await context.decodeAudioData(await file.arrayBuffer());const duration=buffer.duration,bins=1800,peaks=new Float32Array(bins),channel=buffer.getChannelData(0);
@@ -69,14 +81,15 @@ export function mountStudio(){
   const master={preset:$('studioMaster').value,intensity:$('studioIntensity').value,input_gain_db:Number($('studioInputGain').value),target_lufs:Number($('studioLufs').value)};
   return validateStudio({version:1,edits,mix,master});
  }
- function fill(s){stop();undo.length=0;redo.length=0;const edits=s?.edits||{};for(const name of ['vocal','backing']){Object.assign(state[name],{trim_start:0,trim_end:360,position:0},edits[name]||{});data[name]=null;}
+ function fill(s){stop();undo.length=0;redo.length=0;dirty=false;const edits=s?.edits||{};for(const name of ['vocal','backing']){Object.assign(state[name],{trim_start:0,trim_end:360,position:0},edits[name]||{});data[name]=null;}
   const m=s?.mix||{},master=s?.master||{};automation.vocal=structuredClone(m.vocal_automation||[]);automation.backing=structuredClone(m.backing_automation||[]);for(const [id,value] of Object.entries({studioGenre:m.genre||'manual',studioAutoMix:!!m.automix,studioVocalGain:m.vocal_db??0,studioBackingGain:m.backing_db??0,studioHarmony:!!m.harmony?.length,studioHarmonyInterval:m.harmony?.[0]?.semitones??7,studioHarmonyGain:m.harmony?.[0]?.db??-18,studioMaster:master.preset||'none',studioIntensity:master.intensity||'normal',studioInputGain:master.input_gain_db??0,studioLufs:master.target_lufs??-14})){if($(id).type==='checkbox')$(id).checked=value;else $(id).value=value;}refresh();}
 
- function stop(){if(playTimer)clearTimeout(playTimer);playTimer=null;for(const src of playing){try{src.stop();}catch{}}playing=[];}
+ function stop(){if(playTimer)clearTimeout(playTimer);if(playTicker)clearInterval(playTicker);playTimer=null;playTicker=null;for(const src of playing){try{src.stop();}catch{}}playing=[];refresh();}
  async function preview(){stop();context??=new AudioContext();await context.resume();const start=Number($('studioLoopStart').value),end=Number($('studioLoopEnd').value);
   if(!Number.isFinite(start)||!Number.isFinite(end)||start<0||end<=start||end>390)throw Error('試聴区間を確認してください');
   if(!data.vocal?.buffer&&!data.backing?.buffer)throw Error('配置を重ねて試聴するには元ファイルを再選択してください。保存済み音源は各トラックで単独試聴できます。');
   const now=context.currentTime+.08;
+  playhead=start;const started=performance.now();playTicker=setInterval(()=>{playhead=Math.min(end,start+(performance.now()-started)/1000);for(const name of ['vocal','backing'])draw(name);},100);
   for(const name of ['vocal','backing']){const info=data[name],e=state[name];if(!info?.buffer||$(name==='vocal'?'studioMuteVocal':'studioMuteBacking').checked||($('studioSoloVocal').checked||$('studioSoloBacking').checked)&&!$(name==='vocal'?'studioSoloVocal':'studioSoloBacking').checked)continue;
    const from=Math.max(start,e.position),to=Math.min(end,e.position+e.trim_end-e.trim_start);
    if(to<=from)continue;const offset=e.trim_start+from-e.position;
@@ -123,6 +136,6 @@ export function mountStudio(){
    dragCurve.point.time=Math.round(clamp(windowStart+x*windowLength,lo,hi)*100)/100;dragCurve.point.db=Math.round(clamp(12-y*48,-36,12)*10)/10;refresh();});
   canvas.addEventListener('pointerup',()=>{dragCurve=null;});canvas.addEventListener('pointercancel',()=>{dragCurve=null;});
  }
- refresh();return {read,fill,attach,attachOverview};
+ refresh();return {read,fill,attach,attachOverview,markSaved(){dirty=false;refresh();}};
 }
 
