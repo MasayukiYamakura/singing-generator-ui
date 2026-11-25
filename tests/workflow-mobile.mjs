@@ -16,12 +16,28 @@ try{
     assert.equal(await page.locator('#materialsPanel').isVisible(),false);
     assert.match(await page.locator('#studioRuler').innerText(),/0秒/);
     assert.equal(await page.locator('.studio-lane').count(),2);
+    assert.equal(await page.locator('.studio-switch svg').count(),2);
+    assert.equal(await page.locator('#studioSoloVocal,#studioSoloBacking,#studioZoom,#studioViewStart').count(),0);
     for(const name of ['Vocal','Backing']){
       const mute=page.locator(`#studioMute${name}`);
       assert.equal(await mute.isChecked(),false);
       await mute.check();assert.equal(await mute.isChecked(),true);
+      assert.equal(await page.locator(`#studioMute${name}:checked + span .mute-slash`).evaluate(e=>getComputedStyle(e).display),'block');
       await mute.uncheck();
     }
+    await page.locator('#studioOverview').evaluate(el=>{
+      el.setPointerCapture=()=>{};
+      const r=el.getBoundingClientRect(),send=(type,fraction)=>el.dispatchEvent(new PointerEvent(type,{pointerId:10,pointerType:'touch',clientX:r.left+r.width*fraction,bubbles:true,cancelable:true}));
+      send('pointerdown',.04);send('pointermove',.35);send('pointerup',.35);
+    });
+    assert.notEqual(await page.locator('#studioViewportLabel').innerText(),'表示 0.0〜30.0秒');
+    const beforePinch=await page.locator('#studioViewportLabel').innerText();
+    await page.locator('#vocalWave').evaluate(el=>{
+      el.setPointerCapture=()=>{};
+      const r=el.getBoundingClientRect(),send=(type,id,fraction)=>el.dispatchEvent(new PointerEvent(type,{pointerId:id,pointerType:'touch',clientX:r.left+r.width*fraction,bubbles:true,cancelable:true}));
+      send('pointerdown',1,.25);send('pointerdown',2,.55);send('pointermove',2,.75);send('pointerup',1,.25);send('pointerup',2,.75);
+    });
+    assert.notEqual(await page.locator('#studioViewportLabel').innerText(),beforePinch);
     await page.locator('[data-select-track="backing"]').click();
     assert.equal(await page.locator('#backingInspector').isVisible(),true);
     assert.equal(await page.locator('#vocalInspector').isVisible(),false);
