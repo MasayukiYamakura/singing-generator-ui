@@ -15,6 +15,17 @@ try{
     assert.equal(await page.locator('#songStudio').isVisible(),true);
     assert.equal(await page.locator('#materialsPanel').isVisible(),false);
     assert.match(await page.locator('#studioRuler').innerText(),/0秒/);
+    assert.equal(await page.locator('.studio-lane').count(),2);
+    for(const name of ['Vocal','Backing']){
+      const mute=page.locator(`#studioMute${name}`);
+      assert.equal(await mute.isChecked(),false);
+      await mute.check();assert.equal(await mute.isChecked(),true);
+      await mute.uncheck();
+    }
+    await page.locator('[data-select-track="backing"]').click();
+    assert.equal(await page.locator('#backingInspector').isVisible(),true);
+    assert.equal(await page.locator('#vocalInspector').isVisible(),false);
+    await page.locator('[data-select-track="vocal"]').click();
     assert.match(await page.locator('#leaveStatus').innerText(),/待機中/);
     await page.locator('#studioNudgeRight').click();
     assert.equal(await page.locator('#vocalPosition').inputValue(),'0.10');
@@ -25,17 +36,19 @@ try{
     await page.locator('#studioUndo').click();
     assert.equal(await page.locator('#vocalPosition').inputValue(),'0.10');
     const metrics=await page.evaluate(()=>{
-      const el=document.querySelector('.wave-track strong');
-      return {fg:getComputedStyle(el).color,bg:getComputedStyle(el.closest('.wave-track')).backgroundColor,
+      const el=document.querySelector('.studio-track-select');
+      return {fg:getComputedStyle(el).color,bg:getComputedStyle(el.closest('.studio-shell')).backgroundColor,
         overflow:document.documentElement.scrollWidth>innerWidth+1,
         width:innerWidth,scrollWidth:document.documentElement.scrollWidth,
         culprits:[...document.querySelectorAll('body *')].filter(e=>{const r=e.getBoundingClientRect();return r.right>innerWidth+2||r.left< -2}).slice(0,12).map(e=>`${e.tagName}#${e.id}.${e.className} ${Math.round(e.getBoundingClientRect().left)}..${Math.round(e.getBoundingClientRect().right)}`),
-        hit:document.querySelector('#studioPreview').getBoundingClientRect().height};
+        hit:document.querySelector('#studioPreview').getBoundingClientRect().height,
+        mutes:[...document.querySelectorAll('.studio-switch span')].map(e=>e.getBoundingClientRect().height)};
     });
-    assert.equal(metrics.fg,'rgb(231, 243, 240)');
-    assert.equal(metrics.bg,'rgb(18, 35, 43)');
+    assert.equal(metrics.fg,'rgb(125, 240, 192)');
+    assert.equal(metrics.bg,'rgb(13, 27, 33)');
     assert.equal(metrics.overflow,false,`${width}px has horizontal overflow: ${JSON.stringify(metrics)}`);
     assert.ok(metrics.hit>=44);
+    assert.ok(metrics.mutes.every(h=>h>=44));
     await page.getByRole('button',{name:'2 音源を用意'}).click();
     assert.equal(await page.locator('#songSeparation').isVisible(),true);
     await page.getByRole('button',{name:'4 試聴・書き出し'}).click();
@@ -48,3 +61,4 @@ try{
   }
   console.log('Mobile workflow, contrast colors, navigation and reflow passed.');
 }finally{await browser?.close();server.kill();}
+

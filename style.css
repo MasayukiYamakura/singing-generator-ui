@@ -58,6 +58,56 @@
 [data-theme="dark"] .studio-toolbar label,[data-theme="dark"] #studioEditState,[data-theme="dark"] #cleanupInventory{color:#e7f3f0}
 [data-theme="dark"] #leaveStatus{background:#153c33;color:#f3fff7}
 [data-theme="dark"] #leaveStatus[data-stay="true"]{background:#493310;color:#fff1d9}
+/* Two tracks share a ruler and keep their audition controls at the left edge. */
+.studio-shell{background:#0d1b21;color:#eaf5f2;border:1px solid #3d6060;border-radius:18px;padding:15px;overflow:hidden}
+.studio-topbar,.studio-transport,.studio-inspector-title{display:flex;align-items:center;gap:9px;justify-content:space-between}
+.studio-transport{justify-content:flex-start;min-width:0}
+.studio-transport button{min-width:42px;padding:6px 9px;background:#1d343a;color:#ecfaf5;border:1px solid #607e7d;font-size:20px}
+.studio-transport .studio-play{background:#e8f9f1;color:#13372c;border-color:#e8f9f1}
+#studioPlayheadTime{float:none;color:#f2fcf6;font-size:18px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.studio-zoom{width:120px;flex:none;margin:0;color:#d4e9e4}
+.studio-zoom select{margin:0;min-height:42px}
+.studio-timeline{background:#12242b;border:1px solid #46686a;border-radius:14px;padding:8px;margin-top:12px}
+.studio-ruler-row,.studio-lane{display:grid;grid-template-columns:100px minmax(0,1fr);gap:0;align-items:stretch}
+.studio-ruler-label{align-self:center;font-size:12px;color:#b5d0ca}
+.studio-ruler{height:37px;margin:0;color:#d0e5df;border-color:#688682;font-size:13px}
+.studio-lane{min-height:125px;border-top:1px solid #3b565b}
+.studio-lane-controls{display:flex;flex-direction:column;gap:5px;justify-content:center;padding:5px 5px 5px 0}
+.studio-track-select{padding:4px 2px;min-height:36px;background:transparent;border:0;color:#e9f6f2;font-size:16px;text-align:left}
+.studio-track-select[aria-pressed="true"]{color:#7df0c0}
+.studio-lane[data-track="backing"] .studio-track-select[aria-pressed="true"]{color:#ffab8e}
+.studio-lane-switches{display:flex;gap:3px}
+.studio-switch{position:relative;margin:0;cursor:pointer}
+.studio-switch input{position:absolute;width:100%;height:100%;inset:0;opacity:0;cursor:pointer;margin:0}
+.studio-switch span{display:grid;place-items:center;min-width:44px;min-height:44px;border:1px solid #77918f;border-radius:9px;color:#ebf5f1;font-weight:700;font-size:15px}
+.studio-switch input:checked+span{background:#f6d278;border-color:#f6d278;color:#172b2d}
+.studio-switch input:focus-visible+span{outline:3px solid #f6d278;outline-offset:2px}
+.studio-lane:has(input[id^="studioMute"]:checked) canvas{opacity:.42}
+.studio-lane canvas{display:block;width:100%;height:112px;touch-action:none;cursor:grab;border-radius:9px;background:#13252b;align-self:center;min-width:0}
+.studio-lane canvas:active{cursor:grabbing}
+.studio-overview{display:grid;grid-template-columns:68px minmax(0,1fr);align-items:center;gap:8px;background:#1b3338;border-radius:11px;padding:6px 10px;margin:10px 0;color:#d4e8e2}
+.studio-overview canvas{width:100%;height:44px;cursor:pointer;touch-action:none}
+.studio-overview canvas:focus-visible{outline:3px solid #f6d278}
+.studio-scroll-label{display:block;margin:7px 0 10px;color:#d2e8e2}
+.studio-scroll-label input{margin:0}
+.studio-shell .studio-toolbar{background:#203a3f;color:#e9f7f3}
+.studio-shell .studio-toolbar label{color:#e9f7f3}
+.studio-shell .studio-toolbar button{flex:0 0 49px;font-size:21px;padding:6px}
+.studio-inspector{background:#20373c;border:1px solid #648784;border-radius:14px;padding:13px;margin-top:10px}
+.studio-inspector-title strong{font-size:17px}
+.studio-inspector-title button{background:#377e68;color:#fff;border-color:#5daa8d;min-height:44px}
+.studio-edit-state{color:#d7e9e3;font-size:13px;margin:4px 0}
+.studio-track-inspector[hidden]{display:none}
+.studio-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.studio-fields label{color:#e2f1ec;margin:4px 0;font-size:13px}
+.studio-fields input{min-width:0}
+.studio-track-inspector .wave-status{color:#cce3da;font-size:13px;margin:5px 0}
+.studio-track-inspector audio{width:100%}
+.studio-secondary{margin-top:12px}
+.studio-secondary details,.studio-secondary .help{color:#d4e6df}
+.studio-secondary .grid label{color:#e7f4ef}
+@media(max-width:560px){.studio-shell{padding:9px}.studio-topbar{align-items:stretch;flex-wrap:wrap}.studio-zoom{width:100%;display:flex;align-items:center;gap:8px}.studio-zoom select{max-width:130px}.studio-ruler-row,.studio-lane{grid-template-columns:98px minmax(0,1fr)}.studio-lane canvas{height:108px}.studio-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.studio-fields label:last-child{grid-column:1/-1}.studio-transport{width:100%}.studio-transport button{min-width:38px}}
+@media(max-width:350px){.studio-ruler-row,.studio-lane{grid-template-columns:98px minmax(0,1fr)}.studio-transport{gap:5px}.studio-transport button{min-width:35px;padding:5px}.studio-shell .studio-toolbar label{flex-basis:110px}}
 @media(max-width:560px){
  header{flex-wrap:wrap;gap:8px}.pill{white-space:normal;max-width:100%}
  main{padding:0 12px}.panel{padding:18px 15px}.hero{padding:12px 4px}
@@ -150,3 +200,4 @@ header .display-theme {
   color: #ffdace;
   border-color: #b47d6a;
 }
+
