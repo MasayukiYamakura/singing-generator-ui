@@ -25,10 +25,19 @@ try{
       assert.equal(await page.locator(`#studioMute${name}:checked + span .mute-slash`).evaluate(e=>getComputedStyle(e).display),'block');
       await mute.uncheck();
     }
-    const overview=await page.locator('#studioOverview').boundingBox();
-    await page.mouse.move(overview.x+overview.width*.04,overview.y+overview.height/2);
-    await page.mouse.down();await page.mouse.move(overview.x+overview.width*.35,overview.y+overview.height/2,{steps:5});await page.mouse.up();
+    await page.locator('#studioOverview').evaluate(el=>{
+      el.setPointerCapture=()=>{};
+      const r=el.getBoundingClientRect(),send=(type,fraction)=>el.dispatchEvent(new PointerEvent(type,{pointerId:10,pointerType:'touch',clientX:r.left+r.width*fraction,bubbles:true,cancelable:true}));
+      send('pointerdown',.04);send('pointermove',.35);send('pointerup',.35);
+    });
     assert.notEqual(await page.locator('#studioViewportLabel').innerText(),'表示 0.0〜30.0秒');
+    const beforePinch=await page.locator('#studioViewportLabel').innerText();
+    await page.locator('#vocalWave').evaluate(el=>{
+      el.setPointerCapture=()=>{};
+      const r=el.getBoundingClientRect(),send=(type,id,fraction)=>el.dispatchEvent(new PointerEvent(type,{pointerId:id,pointerType:'touch',clientX:r.left+r.width*fraction,bubbles:true,cancelable:true}));
+      send('pointerdown',1,.25);send('pointerdown',2,.55);send('pointermove',2,.75);send('pointerup',1,.25);send('pointerup',2,.75);
+    });
+    assert.notEqual(await page.locator('#studioViewportLabel').innerText(),beforePinch);
     await page.locator('[data-select-track="backing"]').click();
     assert.equal(await page.locator('#backingInspector').isVisible(),true);
     assert.equal(await page.locator('#vocalInspector').isVisible(),false);
