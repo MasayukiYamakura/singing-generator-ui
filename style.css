@@ -41,24 +41,24 @@
 .wave-track .grid{gap:4px 14px}
 .wave-track .grid label:last-child:nth-child(odd){grid-column:1/-1}
 .studio-ruler{height:35px;position:relative;margin:12px 15px -8px;border-bottom:1px solid #728981;color:#29473f;overflow:hidden;font-size:14px;font-weight:650}
-.studio-ruler-mark{position:absolute;top:0;transform:translateX(-12%);white-space:nowrap}
-.studio-ruler-mark:first-child{transform:none}
+.studio-ruler-mark{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+.studio-ruler-tick{position:absolute;bottom:0;width:1px;height:5px;background:#688682}
+.studio-ruler-tick.major{height:10px;background:#cce3da}
 /* Shared timeline controls remain reachable on narrow phones. */
 .studio-toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:8px;padding:10px;background:#e9f1eb;border-radius:12px}
 .studio-toolbar label{flex:1 1 130px;margin:0;color:#24463f}
 .studio-toolbar button{flex:1 1 96px;min-height:48px}
 .studio-toolbar .check{align-self:center;min-height:48px}
-#studioEditState{font-weight:600;color:#315b45}
 #leaveStatus{position:sticky;top:0;z-index:4;padding:10px 14px;margin:0 0 12px;border-radius:10px;background:#e4f1e9;border:1px solid #80b89c;color:#174432;font-weight:650;font-size:13px}
 #leaveStatus[data-stay="true"]{background:#fff1d9;border-color:#bd8333;color:#613d10}
 #cleanupPanel{padding:10px 14px;border:1px solid #cbd7d0;border-radius:12px}
 #cleanupInventory{white-space:pre-line;color:#24463f;font-size:13px}
 [data-theme="dark"] .studio-toolbar{background:#1c3435}
-[data-theme="dark"] .studio-toolbar label,[data-theme="dark"] #studioEditState,[data-theme="dark"] #cleanupInventory{color:#e7f3f0}
+[data-theme="dark"] .studio-toolbar label,[data-theme="dark"] #cleanupInventory{color:#e7f3f0}
 [data-theme="dark"] #leaveStatus{background:#153c33;color:#f3fff7}
 [data-theme="dark"] #leaveStatus[data-stay="true"]{background:#493310;color:#fff1d9}
 /* Two tracks share a ruler and keep their audition controls at the left edge. */
-.studio-shell{background:#0d1b21;color:#eaf5f2;border:1px solid #3d6060;border-radius:18px;padding:15px;overflow:hidden}
+.studio-shell{background:#0d1b21;color:#eaf5f2;border:1px solid #3d6060;border-radius:18px;padding:15px}
 .studio-topbar,.studio-transport,.studio-inspector-title{display:flex;align-items:center;gap:9px;justify-content:space-between}
 .studio-transport{justify-content:flex-start;min-width:0}
 .studio-transport button{min-width:42px;padding:6px 9px;background:#1d343a;color:#ecfaf5;border:1px solid #607e7d;font-size:20px}
@@ -82,10 +82,10 @@
 .studio-switch input:focus-visible+span{outline:3px solid #f6d278;outline-offset:2px}
 .studio-switch svg{width:25px;height:25px}.studio-switch .mute-slash{display:none}.studio-switch input:checked+span .mute-slash{display:block}
 .studio-lane:has(input[id^="studioMute"]:checked) canvas{opacity:.42}
-.studio-lane canvas{display:block;width:100%;height:105px;touch-action:none;cursor:grab;border-radius:9px;background:#13252b;min-width:0}
+.studio-lane canvas{display:block;width:100%;height:105px;touch-action:pan-y;cursor:grab;border-radius:9px;background:#13252b;min-width:0}
 .studio-lane canvas:active{cursor:grabbing}
 .studio-overview{display:grid;grid-template-columns:68px minmax(0,1fr);align-items:center;gap:8px;background:#1b3338;border-radius:11px;padding:6px 10px;margin:10px 0;color:#d4e8e2}
-.studio-overview canvas{width:100%;height:44px;cursor:grab;touch-action:none}.studio-overview canvas:active{cursor:grabbing}
+.studio-overview canvas{width:100%;height:44px;cursor:grab;touch-action:pan-y}.studio-overview canvas:active{cursor:grabbing}
 .studio-overview canvas:focus-visible{outline:3px solid #f6d278}
 .studio-shell .studio-toolbar{background:#203a3f;color:#e9f7f3}
 .studio-shell .studio-toolbar label{color:#e9f7f3}
@@ -103,7 +103,7 @@
 .studio-secondary{margin-top:12px}
 .studio-secondary details,.studio-secondary .help{color:#d4e6df}
 .studio-secondary .grid label{color:#e7f4ef}
-@media(max-width:560px){.studio-shell{padding:9px}.studio-topbar{align-items:stretch;flex-wrap:wrap}.studio-ruler-row,.studio-lane{grid-template-columns:54px minmax(0,1fr)}.studio-lane canvas{height:108px}.studio-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.studio-fields label:last-child{grid-column:1/-1}.studio-transport{width:100%}.studio-transport button{min-width:38px}}
+@media(max-width:560px){.studio-shell{padding:9px}.studio-topbar{align-items:stretch;flex-wrap:wrap}.studio-ruler-row,.studio-lane{grid-template-columns:54px minmax(0,1fr)}.studio-lane{min-height:0}.studio-lane canvas{height:78px}.studio-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.studio-fields label:last-child{grid-column:1/-1}.studio-transport{width:auto}.studio-transport button{min-width:38px}}
 @media(max-width:350px){.studio-ruler-row,.studio-lane{grid-template-columns:54px minmax(0,1fr)}.studio-transport{gap:5px}.studio-transport button{min-width:35px;padding:5px}.studio-shell .studio-toolbar label{flex-basis:110px}}
 @media(max-width:560px){
  header{flex-wrap:wrap;gap:8px}.pill{white-space:normal;max-width:100%}
@@ -198,3 +198,18 @@ header .display-theme {
   border-color: #b47d6a;
 }
 
+
+.studio-track-heading{display:flex;align-items:center;flex-wrap:wrap;column-gap:6px}
+.studio-start-time{margin-inline-start:auto;font-size:13px;color:#d8ebe6;font-variant-numeric:tabular-nums;white-space:nowrap}
+.studio-mute-state{font-size:12px;color:#ffdc94}
+.studio-actions{position:sticky;bottom:0;z-index:3;margin-top:10px;padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));background:#20373c;border:1px solid #648784;border-radius:12px}
+.studio-actions .studio-edit-state,.studio-actions .studio-preview-state{color:#e4f1ee;font-size:13px;font-weight:600;margin:0 0 5px}
+.studio-actions .studio-edit-state[data-state="saved"]{color:#a8ead2}
+.studio-actions .studio-edit-state[data-state="error"]{color:#ffcfbd}
+.studio-action-buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.studio-actions button{min-height:44px;padding:6px 8px}
+.studio-actions #studioSave{background:#93dec7;color:#0e3026;border-color:#93dec7}
+.studio-actions #studioConnect{margin-bottom:6px}
+.studio-adjustments{color:#d4e6df}
+.studio-adjustments summary{min-height:44px}
+@media(max-width:560px){.studio-topbar{gap:5px}.studio-viewport-label{font-size:13px}.studio-track-select{min-height:38px}}
