@@ -38,6 +38,8 @@ try{
       send('pointerdown',1,.25);send('pointerdown',2,.55);send('pointermove',2,.75);send('pointerup',1,.25);send('pointerup',2,.75);
     });
     assert.notEqual(await page.locator('#studioViewportLabel').innerText(),beforePinch);
+    assert.equal(await page.locator('.studio-adjustments').getAttribute('open'),null);
+    await page.locator('.studio-adjustments summary').click();
     await page.locator('[data-select-track="backing"]').click();
     assert.equal(await page.locator('#backingInspector').isVisible(),true);
     assert.equal(await page.locator('#vocalInspector').isVisible(),false);

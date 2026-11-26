@@ -10,10 +10,11 @@ test('left trim keeps the same source time at the placed edge',()=>{const e={tri
 test('touch editor restores trim and project position', async()=>{
  const {mountStudio}=await import('../studio.js');
  const ctx={clearRect(){},fillRect(){},beginPath(){},moveTo(){},lineTo(){},stroke(){},fillText(){},arc(){},fill(){}};
- const ids=['studioRuler','studioOverview','studioPlayheadTime','studioViewportLabel','studioSelectedName','vocalInspector','backingInspector','studioMuteVocal','studioMuteBacking','vocalWaveStatus','backingWaveStatus','vocalTrimStart','vocalTrimEnd','vocalPosition','backingTrimStart','backingTrimEnd','backingPosition','vocalWave','backingWave','vocalCurve','backingCurve','studioTool','studioTrack','studioGenre','studioAutoMix','studioVocalGain','studioBackingGain','studioHarmony','studioHarmonyInterval','studioHarmonyGain','studioMaster','studioIntensity','studioInputGain','studioLufs','studioPreview','studioStop','studioUndo','studioRedo','studioLoopStart','studioLoopEnd','studioLoop','studioHint','addVocalPoint','addBackingPoint','removeCurvePoint','curveTime','curveDb'];
- const elements=Object.fromEntries(ids.map(id=>[id,{value:0,checked:false,width:900,height:115,handlers:{},getContext:()=>ctx,getBoundingClientRect:()=>({left:0,width:900,height:115}),setPointerCapture(){},setAttribute(){},replaceChildren(){},append(){},addEventListener(type,fn){this.handlers[type]=fn}}]));
+ const ids=['studioRuler','studioOverview','studioPlayheadTime','studioViewportLabel','studioSelectedName','vocalInspector','backingInspector','studioMuteVocal','studioMuteBacking','vocalWaveStatus','backingWaveStatus','vocalTrimStart','vocalTrimEnd','vocalPosition','backingTrimStart','backingTrimEnd','backingPosition','vocalWave','backingWave','vocalCurve','backingCurve','studioTool','studioTrack','studioGenre','studioAutoMix','studioVocalGain','studioBackingGain','studioHarmony','studioHarmonyInterval','studioHarmonyGain','studioMaster','studioIntensity','studioInputGain','studioLufs','studioPreview','studioStop','studioUndo','studioRedo','studioLoopStart','studioLoopEnd','studioLoop','studioHint','studioEditState','studioPreviewStatus','studioConnect','vocalStartTime','backingStartTime','vocalMuteState','backingMuteState','addVocalPoint','addBackingPoint','removeCurvePoint','curveTime','curveDb'];
+ const elements=Object.fromEntries(ids.map(id=>[id,{value:0,checked:false,dataset:{},width:900,height:115,handlers:{},getContext:()=>ctx,getBoundingClientRect:()=>({left:0,width:900,height:115}),setPointerCapture(){},setAttribute(){},replaceChildren(){},append(){},addEventListener(type,fn){this.handlers[type]=fn}}]));
  for(const [id,value] of Object.entries({studioTool:'edit',studioGenre:'manual',studioVocalGain:0,studioBackingGain:0,studioHarmonyInterval:7,studioHarmonyGain:-18,studioMaster:'none',studioIntensity:'normal',studioInputGain:0,studioLufs:-14}))elements[id].value=value;
- const prior=globalThis.document,priorAudio=globalThis.AudioContext,gains=[];
+ const prior=globalThis.document,priorAudio=globalThis.AudioContext,priorResize=globalThis.ResizeObserver,gains=[];
+ globalThis.ResizeObserver=class{observe(){}};
  globalThis.document={getElementById:id=>elements[id],querySelector:()=>null,createElement:()=>({style:{},className:'',textContent:''})};
  globalThis.AudioContext=class{currentTime=0;destination={};async resume(){}async decodeAudioData(){return {duration:2,getChannelData:()=>new Float32Array(48000)}}createBufferSource(){return {connect(){return this},start(){},stop(){}}}createGain(){const gain={gain:{value:1},connect(){return this}};gains.push(gain);return gain}};
  try{const editor=mountStudio();editor.fill({edits:{vocal:{trim_start:1,trim_end:3,position:2}}});
@@ -26,7 +27,7 @@ test('touch editor restores trim and project position', async()=>{
   editor.attachOverview('backing',{duration:3,peaks:[0.1,0.5,0.2]});
   assert.equal(editor.read().edits.backing.trim_end,3);
   elements.backingPosition.value=100;elements.backingPosition.handlers.change();
-  const pointer=(pointerId,clientX)=>({pointerId,clientX,preventDefault(){}});
+  const pointer=(pointerId,clientX)=>({pointerId,clientX,clientY:0,preventDefault(){}});
   elements.studioOverview.handlers.pointerdown(pointer(10,30));
   elements.studioOverview.handlers.pointermove(pointer(10,330));
   assert.match(elements.studioViewportLabel.textContent,/表示 34\.3〜64\.3秒/);
@@ -37,6 +38,16 @@ test('touch editor restores trim and project position', async()=>{
   assert.match(elements.studioViewportLabel.textContent,/表示 36\.6〜56\.6秒/);
   elements.vocalWave.handlers.pointerup(pointer(1,100));
   elements.vocalWave.handlers.pointerup(pointer(2,400));
+  assert.equal(editor.read().edits.vocal.position,2.5);
+  assert.equal(editor.read().edits.vocal.trim_start,1.5);
+  editor.setSaveStatus('error','再試行してください');
+  assert.equal(elements.studioEditState.textContent,'再試行してください');
+  const savedEdits=editor.read().edits;
+  editor.markSaved(savedEdits);
+  assert.match(elements.studioEditState.textContent,/保存済み/);
+  elements.vocalPosition.value=5;elements.vocalPosition.handlers.change();
+  editor.markSaved(savedEdits);
+  assert.match(elements.studioEditState.textContent,/未保存/);
   elements.studioMuteVocal.checked=true;elements.studioMuteVocal.handlers.change();
   assert.equal('mute' in editor.read(),false);
   editor.fill({});assert.equal(editor.read().edits.vocal.trim_start,0);
@@ -53,7 +64,7 @@ test('touch editor restores trim and project position', async()=>{
   elements.studioMuteVocal.checked=false;elements.studioMuteVocal.handlers.change();
   assert.deepEqual(gains.map(g=>g.gain.value),[.7,0]);
   editor.stop();
- }finally{globalThis.document=prior;globalThis.AudioContext=priorAudio;}
+ }finally{globalThis.document=prior;globalThis.AudioContext=priorAudio;globalThis.ResizeObserver=priorResize;}
 });
 
 

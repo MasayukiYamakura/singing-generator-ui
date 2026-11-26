@@ -17,6 +17,7 @@ export function trimLeft(edit,value,duration=360){
 }
 export function mountStudio(){
  const state={vocal:{trim_start:0,trim_end:360,position:0},backing:{trim_start:0,trim_end:360,position:0}},automation={vocal:[],backing:[]}, data={vocal:null,backing:null};
+ let saveMessage="",saveState="",savedAt=null,rulerMarks=[];
  let windowStart=0,windowLength=30,active=null,context=null,playing=[],playTimer=null,playTicker=null,playhead=0,dirty=false,selectedTrack='vocal',overviewDrag=null;
  const trackGains={vocal:null,backing:null};
  const pointers=new Map();let pinch=null;
@@ -24,13 +25,12 @@ export function mountStudio(){
  const totalLength=()=>Math.max(30,...Object.values(data).map(i=>i?.duration||0),...Object.values(state).map(e=>e.position+e.trim_end-e.trim_start));
  const snapshot=()=>({edits:structuredClone(state),curves:structuredClone(automation)});
  const restore=x=>{Object.assign(state,x.edits);Object.assign(automation,x.curves);dirty=true;refresh();};
- const pushUndo=()=>{undo.push(snapshot());if(undo.length>40)undo.shift();redo.length=0;dirty=true;};
+ const pushUndo=(previous=snapshot())=>{undo.push(previous);if(undo.length>40)undo.shift();redo.length=0;dirty=true;if(saveState==='error'){saveState='';saveMessage='';$('studioConnect').hidden=true;}};
  function fields(name){return {start:$(name+'TrimStart'),end:$(name+'TrimEnd'),position:$(name+'Position'),canvas:$(name+'Wave')};}
  function draw(name){
   const {canvas}=fields(name),ctx=canvas.getContext('2d'),width=canvas.width,height=canvas.height,e=state[name],info=data[name];
   ctx.clearRect(0,0,width,height);ctx.fillStyle='#13252b';ctx.fillRect(0,0,width,height);
-  const tick=windowLength<=15?1:windowLength<=60?5:windowLength<=180?15:30;
-  for(let t=Math.ceil(windowStart/tick)*tick;t<windowStart+windowLength;t+=tick){const x=(t-windowStart)/windowLength*width;ctx.strokeStyle='#54747a';ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,height);ctx.stroke();}
+  for(const mark of rulerMarks){const x=mark.fraction*width;ctx.strokeStyle=mark.label?'#54747a':'#324d54';ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,height);ctx.stroke();}
   if(!info?.peaks){ctx.fillStyle='#c1d6d0';ctx.font='20px sans-serif';ctx.fillText('音源を選ぶと波形を表示',18,height/2);return;}
   const duration=info.duration;
   const first=(e.position-windowStart)/windowLength*width,last=(e.position+e.trim_end-e.trim_start-windowStart)/windowLength*width;
@@ -49,37 +49,125 @@ export function mountStudio(){
   const first=windowStart/total*w,last=clamp((windowStart+windowLength)/total*w,0,w);ctx.fillStyle='rgba(225,255,243,.16)';ctx.fillRect(first,0,last-first,h);ctx.fillStyle='#d8f6e9';ctx.fillRect(first,0,3,h);ctx.fillRect(Math.max(first,last-3),0,3,h);canvas.setAttribute('aria-valuenow',String(Math.round(windowStart*10)/10));canvas.setAttribute('aria-valuemax',String(Math.max(0,Math.round((total-windowLength)*10)/10)));}
  function selectTrack(name){if(!['vocal','backing'].includes(name))return;selectedTrack=name;$('studioTrack').value=name;for(const role of ['vocal','backing']){const pane=$(role+'Inspector');if(pane)pane.hidden=role!==name;const button=document.querySelector(`[data-select-track="${role}"]`);if(button)button.setAttribute('aria-pressed',String(role===name));}if($('studioSelectedName'))$('studioSelectedName').textContent=(name==='vocal'?'歌声':'伴奏')+'の位置とトリミング';refresh();}
  function formatTime(seconds){const minutes=Math.floor(seconds/60),rest=(seconds%60).toFixed(1).padStart(4,'0');return String(minutes).padStart(2,'0')+':'+rest;}
- function drawRuler(){const ruler=$('studioRuler'),tick=windowLength<=15?1:windowLength<=60?5:windowLength<=180?15:30;ruler.replaceChildren();for(let t=Math.ceil(windowStart/tick)*tick;t<windowStart+windowLength;t+=tick){const mark=document.createElement('span');mark.className='studio-ruler-mark';mark.style.left=`${(t-windowStart)/windowLength*100}%`;mark.textContent=`${t}秒`;ruler.append(mark);}}
- function refresh(){drawRuler();for(const name of ['vocal','backing']){const e=state[name],f=fields(name);f.start.value=e.trim_start.toFixed(2);f.end.value=e.trim_end.toFixed(2);f.position.value=e.position.toFixed(2);$(name+'WaveStatus').textContent=data[name]?.peaks?`配置 ${e.position.toFixed(2)}秒 / 元音源 ${e.trim_start.toFixed(2)}〜${e.trim_end.toFixed(2)}秒。中央で移動・両端でトリミング。`:'音源を選ぶか保存済みの波形を読み込んでください。';draw(name);drawCurve(name);}
+ function drawRuler(){
+  const ruler=$('studioRuler'),width=ruler.clientWidth;
+  if(!width)return;
+  const end=windowStart+windowLength;
+  const format=t=>end>=60?Math.floor(t/60)+':'+String(t%60).padStart(2,'0'):t+'秒';
+  const measure=ruler.ownerDocument.createElement('canvas').getContext('2d');
+  const font=getComputedStyle(ruler);
+  measure.font=`${font.fontWeight} ${font.fontSize} ${font.fontFamily}`;
+  const spacing=Math.max(measure.measureText(format(Math.ceil(end))).width,measure.measureText(format(Math.floor(windowStart))).width)+12;
+  const steps=[1,2,5,10,15,30,60,120,180,300];
+  const major=steps.find(step=>step/windowLength*width>=spacing)??300;
+  const minor=steps.find(step=>major%step===0&&step/windowLength*width>=10)??major;
+  let lastRight=-Infinity;
+  rulerMarks=[];
+  const fragment=document.createDocumentFragment();
+  for(let time=Math.ceil(windowStart/minor)*minor;time<=end;time+=minor){
+   const fraction=(time-windowStart)/windowLength,position=fraction*width;
+   const label=time%major===0?format(time):'';
+   const half=measure.measureText(label).width/2;
+   const center=clamp(position,half,width-half);
+   const showLabel=Boolean(label)&&center-half>=lastRight+6;
+   rulerMarks.push({fraction,label:showLabel});
+   const tick=document.createElement('span');
+   tick.className='studio-ruler-tick';
+   tick.style.left=position+'px';
+   tick.setAttribute('aria-hidden','true');
+   if(showLabel){
+    tick.classList.add('major');
+    const text=document.createElement('span');
+    text.className='studio-ruler-mark';
+    text.style.left=center+'px';
+    text.textContent=label;
+    fragment.append(text);
+    lastRight=center+half;
+   }
+   fragment.append(tick);
+  }
+  ruler.replaceChildren(fragment);
+ }
+ function refresh(){drawRuler();for(const name of ['vocal','backing']){const e=state[name],f=fields(name);f.start.value=e.trim_start.toFixed(2);f.end.value=e.trim_end.toFixed(2);f.position.value=e.position.toFixed(2);$(name+'StartTime').textContent=`開始 ${f.position.value}秒`;$(name+'WaveStatus').textContent=data[name]?.peaks?`配置 ${e.position.toFixed(2)}秒 / 元音源 ${e.trim_start.toFixed(2)}〜${e.trim_end.toFixed(2)}秒。中央で移動・両端でトリミング。`:'音源を選ぶか保存済みの波形を読み込んでください。';draw(name);drawCurve(name);}
   drawOverview();if($('studioPlayheadTime'))$('studioPlayheadTime').textContent=formatTime(playhead);
   if($('studioViewportLabel'))$('studioViewportLabel').textContent=`表示 ${windowStart.toFixed(1)}〜${(windowStart+windowLength).toFixed(1)}秒`;
-  if($('studioEditState'))$('studioEditState').textContent=dirty?'未保存の位置合わせがあります。「編集を保存」で保持します。':'位置合わせは保存済み、または未変更です。';}
+  const status=$('studioEditState');
+  const message=saveMessage||(dirty?'未保存の変更があります。':savedAt?`保存済み · ${savedAt}　プロジェクトに反映`:'位置合わせは未変更です。');
+  if(status.textContent!==message)status.textContent=message;
+  status.dataset.state=saveState||(dirty?'dirty':savedAt?'saved':'');
+ }
+ function setSaveStatus(state,message='',showConnection=false){
+  saveState=state;saveMessage=message;$('studioConnect').hidden=!showConnection;refresh();
+ }
  function update(name,field,value){if(!Number.isFinite(value))throw Error('秒数を確認してください');pushUndo();const e=state[name],max=data[name]?.duration??360;if(field==='trim_start')Object.assign(e,trimLeft(e,value,max));else {e[field]=Math.round(clamp(value,0,field==='position'?390:max)*100)/100;if(e.trim_end<=e.trim_start)e.trim_end=Math.min(max,e.trim_start+.01);}refresh();}
  for(const name of ['vocal','backing']){
   const f=fields(name);
   for(const [key,element] of [['trim_start',f.start],['trim_end',f.end],['position',f.position]])element.addEventListener('change',()=>{try{update(name,key,Number(element.value));}catch(e){alert(e.message);refresh();}});
-  f.canvas.addEventListener('pointerdown',event=>{const rect=f.canvas.getBoundingClientRect(),x=(event.clientX-rect.left)/rect.width*f.canvas.width,e=state[name],handle=24/rect.width*f.canvas.width;
-   selectTrack(name);pointers.set(event.pointerId,event.clientX);
-   if(pointers.size===2){const xs=[...pointers.values()],middle=(xs[0]+xs[1])/2,fraction=clamp((middle-rect.left)/rect.width,0,1);pinch={distance:Math.abs(xs[0]-xs[1]),length:windowLength,anchor:windowStart+fraction*windowLength,fraction};if(active?.kind!=='pan'&&active){Object.assign(state[active.name],active.initial);undo.pop();dirty=active.wasDirty;}active=null;f.canvas.setPointerCapture(event.pointerId);refresh();return;}
-   const left=(e.position-windowStart)/windowLength*f.canvas.width,right=(e.position+e.trim_end-e.trim_start-windowStart)/windowLength*f.canvas.width;
-   playhead=clamp(windowStart+x/f.canvas.width*windowLength,0,390);
-   const pan=$('studioTool')?.value==='pan'||x<left-handle||x>right+handle,wasDirty=dirty;
-   if(!pan)pushUndo();active={name,kind:pan?'pan':Math.abs(x-left)<handle?'trim_start':Math.abs(x-right)<handle?'trim_end':'position',x:event.clientX,initial:{...e},start:windowStart,wasDirty};
-   f.canvas.setPointerCapture(event.pointerId);event.preventDefault();});
-  f.canvas.addEventListener('pointermove',event=>{if(pointers.has(event.pointerId))pointers.set(event.pointerId,event.clientX);if(pinch&&pointers.size===2){const xs=[...pointers.values()],distance=Math.abs(xs[0]-xs[1]);if(distance>12&&pinch.distance>12){windowLength=clamp(Math.round(pinch.length*pinch.distance/distance*10)/10,5,Math.min(360,totalLength()));windowStart=clamp(pinch.anchor-pinch.fraction*windowLength,0,Math.max(0,totalLength()-windowLength));refresh();}return;}if(!active||active.name!==name)return;const delta=(event.clientX-active.x)/f.canvas.getBoundingClientRect().width*windowLength,initial=active.initial;
-   if(active.kind==='pan')windowStart=clamp(active.start-delta,0,Math.max(0,390-windowLength));
-   else if(active.kind==='trim_start')Object.assign(state[name],trimLeft(initial,$('studioSnap')?.checked?Math.round(initial.trim_start+delta):initial.trim_start+delta,data[name]?.duration??360));
-   else if(active.kind==='trim_end')state[name].trim_end=clamp($('studioSnap')?.checked?Math.round(initial.trim_end+delta):initial.trim_end+delta,initial.trim_start+.01,data[name]?.duration??360);
-   else {const position=initial.position+delta;state[name].position=clamp($('studioSnap')?.checked?Math.round(position):Math.round(position*100)/100,0,390);}
-   refresh();});
-  f.canvas.addEventListener('pointerup',event=>{pointers.delete(event.pointerId);if(pointers.size<2)pinch=null;active=null;});f.canvas.addEventListener('pointercancel',event=>{pointers.delete(event.pointerId);pinch=null;if(active?.kind!=='pan'&&active){Object.assign(state[name],active.initial);undo.pop();dirty=active.wasDirty;}active=null;refresh();});
+  f.canvas.addEventListener('pointerdown',event=>{
+   const rect=f.canvas.getBoundingClientRect(),x=event.clientX-rect.left,e=state[name];
+   selectTrack(name);
+   pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
+   f.canvas.setPointerCapture(event.pointerId);
+   if(pointers.size===2){
+    const [first,second]=pointers.values();
+    const fraction=clamp(((first.x+second.x)/2-rect.left)/rect.width,0,1);
+    pinch={distance:Math.hypot(first.x-second.x,first.y-second.y),length:windowLength,anchor:windowStart+fraction*windowLength,fraction};
+    if(active){Object.assign(state[active.name],active.initial);dirty=active.wasDirty;}
+    active=null;refresh();return;
+   }
+   if(pointers.size>1)return;
+   const left=(e.position-windowStart)/windowLength*rect.width,right=(e.position+e.trim_end-e.trim_start-windowStart)/windowLength*rect.width;
+   const globalPan=$('studioTool').value==='pan';
+   const handle=Math.min(24,Math.max(0,(right-left)/4));
+   const kind=globalPan||x<left-handle||x>right+handle?'pan':Math.abs(x-left)<handle?'trim_start':Math.abs(x-right)<handle?'trim_end':'position';
+   active={name,kind,id:event.pointerId,x:event.clientX,y:event.clientY,initial:{...e},start:windowStart,wasDirty:dirty,changed:false};
+  });
+  f.canvas.addEventListener('pointermove',event=>{
+   if(!pointers.has(event.pointerId))return;
+   pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
+   if(pinch&&pointers.size===2){
+    const [first,second]=pointers.values(),distance=Math.hypot(first.x-second.x,first.y-second.y);
+    if(distance>12&&pinch.distance>12){
+     windowLength=clamp(Math.round(pinch.length*pinch.distance/distance*10)/10,5,Math.min(360,totalLength()));
+     windowStart=clamp(pinch.anchor-pinch.fraction*windowLength,0,Math.max(0,totalLength()-windowLength));refresh();
+    }
+    return;
+   }
+   if(active?.id!==event.pointerId)return;
+   const dx=event.clientX-active.x;
+   if(!active.changed&&Math.abs(dx)<5)return;
+   const delta=dx/f.canvas.getBoundingClientRect().width*windowLength,initial=active.initial;
+   const move=$('studioSnap').checked?Math.round(delta+initial[active.kind]):delta+initial[active.kind];
+   if(active.kind==='pan')windowStart=clamp(active.start-delta,0,Math.max(0,totalLength()-windowLength));
+   else if(active.kind==='trim_start')Object.assign(state[name],trimLeft(initial,move,data[name]?.duration??360));
+   else if(active.kind==='trim_end')state[name].trim_end=clamp(Math.round(move*100)/100,initial.trim_start+.01,data[name]?.duration??360);
+   else state[name].position=clamp(Math.round(move*100)/100,0,390);
+   active.changed=true;
+   if(active.kind!=='pan')dirty=active.wasDirty||Object.keys(initial).some(key=>initial[key]!==state[name][key]);
+   refresh();
+  });
+  for(const type of ['pointerup','pointercancel','lostpointercapture'])f.canvas.addEventListener(type,event=>{
+   pointers.delete(event.pointerId);
+   if(pointers.size<2)pinch=null;
+   if(active?.id!==event.pointerId)return;
+   const edit=active;active=null;
+   if(type!=='pointerup'){
+    Object.assign(state[name],edit.initial);dirty=edit.wasDirty;
+    if(edit.kind==='pan')windowStart=edit.start;
+   }else if(edit.kind!=='pan'&&Object.keys(edit.initial).some(key=>edit.initial[key]!==state[name][key])){
+    const previous=snapshot();previous.edits[name]=edit.initial;pushUndo(previous);
+   }else if(!edit.changed){
+    const rect=f.canvas.getBoundingClientRect();
+    playhead=clamp(windowStart+(event.clientX-rect.left)/rect.width*windowLength,0,390);
+   }
+   refresh();
+  });
  }
  for(const name of ['vocal','backing']){document.querySelector(`[data-select-track="${name}"]`)?.addEventListener('click',()=>selectTrack(name));}
  $('studioTrack').addEventListener('change',()=>selectTrack($('studioTrack').value));
- function syncAudition(){for(const name of ['vocal','backing']){const muted=$(name==='vocal'?'studioMuteVocal':'studioMuteBacking').checked;if(trackGains[name])trackGains[name].gain.value=muted?0:.7;}}
+ function syncAudition(){for(const name of ['vocal','backing']){const muted=$(name==='vocal'?'studioMuteVocal':'studioMuteBacking').checked;if(trackGains[name])trackGains[name].gain.value=muted?0:.7;$(name+'MuteState').hidden=!muted;}}
  for(const id of ['studioMuteVocal','studioMuteBacking'])$(id).addEventListener('change',syncAudition);
  for(const [id,sign] of [['studioNudgeLeft',-1],['studioNudgeRight',1]])$(id)?.addEventListener('click',()=>{const name=$('studioTrack').value;update(name,'position',state[name].position+sign*Number($('studioNudgeStep').value));});
- $('studioSave')?.addEventListener('click',()=>$('saveSettings').click());
  const overview=$('studioOverview');if(overview){overview.addEventListener('pointerdown',event=>{const rect=overview.getBoundingClientRect(),total=totalLength(),x=clamp((event.clientX-rect.left)/rect.width,0,1)*total;const inside=x>=windowStart&&x<=windowStart+windowLength;overviewDrag={pointerId:event.pointerId,offset:inside?x-windowStart:windowLength/2};windowStart=clamp(x-overviewDrag.offset,0,Math.max(0,total-windowLength));overview.setPointerCapture(event.pointerId);event.preventDefault();refresh();});overview.addEventListener('pointermove',event=>{if(overviewDrag?.pointerId!==event.pointerId)return;const rect=overview.getBoundingClientRect(),total=totalLength(),x=clamp((event.clientX-rect.left)/rect.width,0,1)*total;windowStart=clamp(x-overviewDrag.offset,0,Math.max(0,total-windowLength));refresh();});for(const type of ['pointerup','pointercancel'])overview.addEventListener(type,event=>{if(overviewDrag?.pointerId===event.pointerId)overviewDrag=null;});overview.addEventListener('keydown',event=>{const total=totalLength();if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();windowStart=event.key==='Home'?0:event.key==='End'?Math.max(0,total-windowLength):clamp(windowStart+(event.key==='ArrowRight'?1:-1),0,Math.max(0,total-windowLength));refresh();});}
  async function attach(name,file){if(!file)return;try{context??=new AudioContext();const buffer=await context.decodeAudioData(await file.arrayBuffer());const duration=buffer.duration,bins=1800,peaks=new Float32Array(bins),channel=buffer.getChannelData(0);
    for(let i=0;i<bins;i++){let peak=0;const from=Math.floor(i*channel.length/bins),to=Math.floor((i+1)*channel.length/bins);for(let j=from;j<to;j+=Math.max(1,Math.floor((to-from)/40)))peak=Math.max(peak,Math.abs(channel[j]));peaks[i]=peak;}
@@ -95,13 +183,15 @@ export function mountStudio(){
   const master={preset:$('studioMaster').value,intensity:$('studioIntensity').value,input_gain_db:Number($('studioInputGain').value),target_lufs:Number($('studioLufs').value)};
   return validateStudio({version:1,edits,mix,master});
  }
- function fill(s){stop();undo.length=0;redo.length=0;dirty=false;selectedTrack='vocal';windowStart=0;windowLength=30;overviewDrag=null;for(const id of ['studioMuteVocal','studioMuteBacking'])$(id).checked=false;const edits=s?.edits||{};for(const name of ['vocal','backing']){Object.assign(state[name],{trim_start:0,trim_end:360,position:0},edits[name]||{});data[name]=null;}
-  const m=s?.mix||{},master=s?.master||{};automation.vocal=structuredClone(m.vocal_automation||[]);automation.backing=structuredClone(m.backing_automation||[]);for(const [id,value] of Object.entries({studioGenre:m.genre||'manual',studioAutoMix:!!m.automix,studioVocalGain:m.vocal_db??0,studioBackingGain:m.backing_db??0,studioHarmony:!!m.harmony?.length,studioHarmonyInterval:m.harmony?.[0]?.semitones??7,studioHarmonyGain:m.harmony?.[0]?.db??-18,studioMaster:master.preset||'none',studioIntensity:master.intensity||'normal',studioInputGain:master.input_gain_db??0,studioLufs:master.target_lufs??-14})){if($(id).type==='checkbox')$(id).checked=value;else $(id).value=value;}selectTrack('vocal');}
+ function fill(s){stop();undo.length=0;redo.length=0;dirty=false;saveMessage='';saveState='';savedAt=null;$('studioConnect').hidden=true;selectedTrack='vocal';windowStart=0;windowLength=30;overviewDrag=null;for(const id of ['studioMuteVocal','studioMuteBacking'])$(id).checked=false;const edits=s?.edits||{};for(const name of ['vocal','backing']){Object.assign(state[name],{trim_start:0,trim_end:360,position:0},edits[name]||{});data[name]=null;}
+  syncAudition();const m=s?.mix||{},master=s?.master||{};automation.vocal=structuredClone(m.vocal_automation||[]);automation.backing=structuredClone(m.backing_automation||[]);for(const [id,value] of Object.entries({studioGenre:m.genre||'manual',studioAutoMix:!!m.automix,studioVocalGain:m.vocal_db??0,studioBackingGain:m.backing_db??0,studioHarmony:!!m.harmony?.length,studioHarmonyInterval:m.harmony?.[0]?.semitones??7,studioHarmonyGain:m.harmony?.[0]?.db??-18,studioMaster:master.preset||'none',studioIntensity:master.intensity||'normal',studioInputGain:master.input_gain_db??0,studioLufs:master.target_lufs??-14})){if($(id).type==='checkbox')$(id).checked=value;else $(id).value=value;}selectTrack('vocal');}
 
- function stop(){if(playTimer)clearTimeout(playTimer);if(playTicker)clearInterval(playTicker);playTimer=null;playTicker=null;for(const src of playing){try{src.stop();}catch{}}playing=[];trackGains.vocal=null;trackGains.backing=null;refresh();}
+ function previewStatus(message){const status=$('studioPreviewStatus');status.textContent=message;status.hidden=!message;}
+ function stop(){if(playTimer)clearTimeout(playTimer);if(playTicker)clearInterval(playTicker);playTimer=null;playTicker=null;for(const src of playing){try{src.stop();}catch{}}playing=[];trackGains.vocal=null;trackGains.backing=null;$('studioPreview').hidden=false;$('studioStop').hidden=true;previewStatus('');refresh();}
  async function preview(){stop();context??=new AudioContext();await context.resume();const start=Number($('studioLoopStart').value),end=Number($('studioLoopEnd').value);
   if(!Number.isFinite(start)||!Number.isFinite(end)||start<0||end<=start||end>390)throw Error('試聴区間を確認してください');
   if(!data.vocal?.buffer&&!data.backing?.buffer)throw Error('配置を重ねて試聴するには元ファイルを再選択してください。保存済み音源は各トラックで単独試聴できます。');
+  $('studioPreview').hidden=true;$('studioStop').hidden=false;previewStatus('試聴中 · ミュートは試聴のみに反映');
   const now=context.currentTime+.08;
   playhead=start;const started=performance.now();playTicker=setInterval(()=>{playhead=Math.min(end,start+(performance.now()-started)/1000);for(const name of ['vocal','backing'])draw(name);if($('studioPlayheadTime'))$('studioPlayheadTime').textContent=formatTime(playhead);},100);
   for(const name of ['vocal','backing']){const info=data[name],e=state[name];if(!info?.buffer)continue;
@@ -110,9 +200,9 @@ export function mountStudio(){
    const source=context.createBufferSource(),gain=context.createGain();source.buffer=info.buffer;trackGains[name]=gain;syncAudition();
    source.connect(gain).connect(context.destination);source.start(now+from-start,offset,to-from);playing.push(source);
   }
-  playTimer=setTimeout(()=>{playTimer=null;if($('studioLoop').checked)preview().catch(e=>{$('studioHint').textContent=e.message;});else stop();},Math.ceil((end-start)*1000)+100);
+  playTimer=setTimeout(()=>{playTimer=null;if($('studioLoop').checked)preview().catch(e=>previewStatus(e.message));else stop();},Math.ceil((end-start)*1000)+100);
  }
- $('studioPreview').onclick=()=>preview().catch(e=>{$('studioHint').textContent=e.message;});
+ $('studioPreview').onclick=()=>preview().catch(e=>previewStatus(e.message));
  $('studioStop').onclick=stop;
  $('studioUndo').onclick=()=>{if(!undo.length)return;redo.push(snapshot());restore(undo.pop());};
  $('studioRedo').onclick=()=>{if(!redo.length)return;undo.push(snapshot());restore(redo.pop());};
@@ -150,7 +240,12 @@ export function mountStudio(){
    dragCurve.point.time=Math.round(clamp(windowStart+x*windowLength,lo,hi)*100)/100;dragCurve.point.db=Math.round(clamp(12-y*48,-36,12)*10)/10;refresh();});
   canvas.addEventListener('pointerup',()=>{dragCurve=null;});canvas.addEventListener('pointercancel',()=>{dragCurve=null;});
  }
- refresh();return {read,fill,attach,attachOverview,preview,stop,markSaved(){dirty=false;refresh();}};
+ new ResizeObserver(()=>{drawRuler();draw('vocal');draw('backing');}).observe($('studioRuler'));
+ refresh();return {read,fill,attach,attachOverview,preview,stop,setSaveStatus,markSaved(savedEdits){
+  dirty=Boolean(savedEdits)&&JSON.stringify(savedEdits)!==JSON.stringify(state);
+  savedAt=new Intl.DateTimeFormat('ja-JP',{hour:'2-digit',minute:'2-digit'}).format(new Date());
+  setSaveStatus('');
+ }};
 }
 
 
